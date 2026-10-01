@@ -62,7 +62,7 @@ class QuantitySheetTest(unittest.TestCase):
             "T2": "Reaction Formulas", "AA2": "1 run output",
             "J3": "Atmospheric Gases", "J4": "Cadmium", "J5": "Caesium", "J6": "Oxygen Fuel Block",
             "F4": "=MAX(M3-L3,0)",  # wrong: 1 Cadmium per Caesarium Cadmide
-            "F5": "=ROUNDUP(54400*(1+$AC$1),0)*O3",  # not parsed as MAX -> reported missing
+            "F5": "=ROUNDUP(54400*(1+$AC$1),0)*O3",  # corrected form -> must pass
             "F6": "=ROUNDUP(5/200*N3*(1+$AC$1),0)",
             "R3": "Caesarium Cadmide",
             "M3": "=ROUNDUP(54400*(1+$AC$1),0)*T3",
@@ -71,7 +71,7 @@ class QuantitySheetTest(unittest.TestCase):
         })
         findings = check_quantity_sheet(s, RECIPES)
         cells = sorted({f.cell for f in findings})
-        self.assertEqual(cells, ["F4", "F5"])
+        self.assertEqual(cells, ["F4"])
         f4 = next(f for f in findings if f.cell == "F4")
         self.assertIn("sheet 1, website 0.5", f4.message)
         self.assertEqual(f4.fix, "=ROUNDUP(54400*(1+$AC$1),0)*O3")

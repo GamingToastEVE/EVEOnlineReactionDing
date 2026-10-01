@@ -257,6 +257,13 @@ def check_quantity_sheet(sheet, recipes):
                              r"(\*\((\d+)/(\d+)\))?", formula, re.I):
             coef = int(m.group(4)) / int(m.group(5)) if m.group(3) else 1.0
             found[simples.get(int(m.group(1)), f"row {m.group(1)}")] = coef
+        # corrected form: ROUNDUP(<qty per job>*(1+rig),0)*<jobs column><row>
+        jobs_col = get_column_letter(column_index_from_string(L["batch"]) + 1)
+        for m in re.finditer(r"ROUNDUP\((\d+)\*\(1\+\$?[A-Z]+\$?1\),0\)\*\$?" + jobs_col + r"(\d+)",
+                             formula, re.I):
+            name = simples.get(int(m.group(2)), f"row {m.group(2)}")
+            per_job = RUNS_PER_JOB * recipes[name]["out"] if name in recipes else 1
+            found[name] = int(m.group(1)) / per_job
         expected = {n: recipes[n]["in"][material] / recipes[n]["out"]
                     for n in simples.values() if material in recipes[n]["in"]}
         diffs = _compare(found, expected)
