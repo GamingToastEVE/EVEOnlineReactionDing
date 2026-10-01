@@ -1,0 +1,307 @@
+"""Command line interface: ``python -m reactionding <command>``."""
+
+import argparse
+import csv
+import json
+import sys
+
+from . import settings as settings_mod
+from .catalog import CALCULATORS, GROUPS, find_items, groups_for
+from .client import ApiError, Client
+from .engine import calculate, warnings
+
+SETTINGS_FILE = "settings.json"
+
+
+def fmt_isk(value):
+    return "-" if value is None else f"{value:,.0f}"
+
+
+def fmt_pct(value):
+    if value is None:
+        return "-"
+    if value in (float("inf"), float("-inf")) or value != value:
+        return "-inf %" if value == float("-inf") else "n/a"
+    return f"{value:.2f} %"
+
+
+def add_settings_args(parser):
+    group = parser.add_argument_group("settings (override settings.json)")
+    for key, (kind, rule, label) in settings_mod.SCHEMA.items():
+        extra = f" [{'|'.join(map(str, rule))}]" if kind in ("enum", "int_enum") else ""
+        group.add_argument(f"--{key}", dest=key, metavar="X", help=(label + extra).replace("%", "%%"))
+    parser.add_argument("--settings", default=SETTINGS_FILE, help="settings file (default: settings.json)")
+
+
+def resolve_settings(args):
+    base = settings_mod.load(args.settings)
+    overrides = {k: getattr(args, k) for k in settings_mod.SCHEMA if getattr(args, k, None) is not None}
+    return settings_mod.normalize(overrides, base)
+
+
+def progress_printer(total, enabled):
+    state = {"n": 0}
+
+    def tick(*_):
+        state["n"] += 1
+        if enabled:
+            sys.stderr.write(f"\r  {state['n']}/{total} reactions ")
+            sys.stderr.flush()
+    return tick
+
+
+def print_table(rows, sort=None, limit=None):
+    by_group = {}
+    for row in rows:
+        by_group.setdefault(row.group.key, []).append(row)
+    sections = [("Top reactions", rows)] if sort else \
+        [(GROUPS[k].title, v) for k, v in by_group.items()]
+    for title, section in sections:
+        if sort:
+            section = sorted(section, key=lambda r: (r.ok, getattr(r, sort) or 0), reverse=True)
+        if limit:
+            section = section[:limit]
+        width = max([len(r.name) for r in section] + [8])
+        if sort:
+            width = max([len(f"{r.name} [{r.group.key}]") for r in section] + [8])
+        print(f"\n{title}")
+        header = f"{'Reaction':<{width}} {'Inputs':>16} {'Tax':>14} {'Output':>16} {'Profit':>16} {'% prof.':>10}"
+        print(header)
+        print("-" * len(header))
+        for r in section:
+            name = f"{r.name} [{r.group.key}]" if sort else r.name
+            if not r.ok:
+                print(f"{name:<{width}} ERROR: {r.error}")
+                continue
+            print(f"{name:<{width}} {fmt_isk(r.inputs_total):>16} {fmt_isk(r.taxes_total):>14} "
+                  f"{fmt_isk(r.output_total):>16} {fmt_isk(r.profit):>16} {fmt_pct(r.profit_percent):>10}")
+
+
+def cmd_calc(args):
+    settings = resolve_settings(args)
+    groups = groups_for(args.groups)
+    total = sum(len(g.items) for g in groups)
+    rows = calculate(settings, groups, source=args.source, client=Client(per_second=args.rate),
+                     workers=args.workers, progress=progress_printer(total, sys.stderr.isatty()))
+    if sys.stderr.isatty():
+        sys.stderr.write("\r" + " " * 30 + "\r")
+    for warning in warnings(settings, rows):
+        print(f"Warning: {warning}", file=sys.stderr)
+    if args.format == "json":
+        json.dump({"settings": settings, "rows": [r.to_dict(args.full) for r in rows]},
+                  sys.stdout, indent=2)
+        print()
+    elif args.format == "csv":
+        writer = csv.writer(sys.stdout)
+        writer.writerow(["Calculator", "Group", "Reaction", "Type ID", "Source", "Inputs", "Tax",
+                         "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"])
+        for r in rows:
+            writer.writerow([CALCULATORS[r.group.calculator], r.group.title, r.name, r.item_id,
+                             r.source, r.inputs_total, r.taxes_total, r.output_total, r.profit,
+                             r.profit_percent, r.profit_per_hour, r.runs, r.error])
+    else:
+        print_settings(settings)
+        print_table(rows, sort=args.sort, limit=args.top)
+    return 1 if any(not r.ok for r in rows) else 0
+
+
+def print_settings(settings):
+    s = settings
+    print(f"In: {s['input']} ({s['inMarket']})  Out: {s['output']} ({s['outMarket']})  "
+          f"B: {s['brokers']:g} | S: {s['sales']:g}  Reactions {s['skill']}  {s['facility']} refinery  "
+          f"rigs T{s['rigs']}  {s['space']}  {s['system']}  IndyTax {s['tax']:g}  SCC {s['scc']:g}  "
+          f"{s['duration']} min  cycles {s['cycles']}  prismaticite {s['prismaticite']:g}"
+          + (f"  cost index {s['costIndex']:g}" if s["space"] == "wormhole" else ""))
+
+
+def cmd_show(args):
+    settings = resolve_settings(args)
+    hits = find_items(args.query)
+    if args.group:
+        hits = [h for h in hits if h[0].key == args.group.replace("-", "_")]
+    if not hits:
+        print(f"No reaction matches '{args.query}'", file=sys.stderr)
+        return 1
+    exact = [h for h in hits if h[2].lower() == args.query.lower() or str(h[1]) == args.query]
+    hits = exact or hits
+    names = sorted({h[2] for h in hits})
+    if len(names) > 1:
+        print("Ambiguous, matches:\n  " + "\n  ".join(names), file=sys.stderr)
+        return 1
+    client = Client()
+    for group, item_id, name in hits:
+        rows = calculate(settings, [group], source=args.source, client=client, workers=1)
+        row = next(r for r in rows if r.item_id == item_id)
+        print(f"\n== {name} ({group.title}, type {item_id}, source: {row.source})")
+        if not row.ok:
+            print(f"ERROR: {row.error}")
+            continue
+        res = row.result
+        print(f"{'Input':<36} {'Quantity':>14} {'Price':>18} {'Market tax':>14}")
+        for x in res.get("input", []):
+            print(f"{x['name']:<36} {x['quantity']:>14,.0f} {fmt_isk(x.get('price')):>18} "
+                  f"{fmt_isk(x.get('market_tax')):>14}")
+        out = res.get("output", {})
+        print(f"{'Output: ' + out.get('name', ''):<36} {out.get('quantity', 0):>14,.0f} "
+              f"{fmt_isk(out.get('price')):>18}")
+        for x in res.get("remaining") or []:
+            print(f"  left over: {x['name']} x{x['quantity']:,} ({fmt_isk(x.get('price'))} ISK)")
+        t = res.get("taxes", {})
+        m = t.get("market", {})
+        print(f"\nTaxes: system {fmt_isk(t.get('system'))}  facility {fmt_isk(t.get('facility'))}  "
+              f"SCC {fmt_isk(t.get('scc'))}  brokers in {fmt_isk(m.get('inputs', {}).get('brokers'))}  "
+              f"brokers out {fmt_isk(m.get('output', {}).get('brokers'))}  "
+              f"sales {fmt_isk(m.get('output', {}).get('sales'))}  = {fmt_isk(row.taxes_total)}")
+        cyc = res.get("cycle_data", {})
+        cycle = f"  cycle time {cyc['cycle_time']:,} s" if cyc.get("cycle_time") else ""
+        print(f"Runs: {row.runs}{cycle}  window {cyc.get('total_time')} min")
+        print(f"Inputs {fmt_isk(row.inputs_total)}  Output {fmt_isk(row.output_total)}  "
+              f"Profit {fmt_isk(row.profit)} ({fmt_pct(row.profit_percent)})  "
+              f"{fmt_isk(row.profit_per_hour)} ISK/h")
+        if group.issue:
+            print(f"Note: {group.issue}")
+    return 0
+
+
+def cmd_list(args):
+    for group in groups_for(args.groups):
+        print(f"\n{group.title}  [{group.key}, source: {group.source}]")
+        if group.issue:
+            print(f"  ! {group.issue}")
+        for item_id, name in group.items:
+            print(f"  {item_id:>6}  {name}")
+    return 0
+
+
+def cmd_settings(args):
+    current = settings_mod.load(args.settings)
+    if args.set:
+        changes = {}
+        for pair in args.set:
+            if "=" not in pair:
+                print(f"Use key=value, got '{pair}'", file=sys.stderr)
+                return 2
+            key, value = pair.split("=", 1)
+            changes[key.strip()] = value.strip()
+        current = settings_mod.normalize(changes, current)
+        settings_mod.save(args.settings, current)
+        print(f"Saved {args.settings}")
+    if args.reset:
+        current = settings_mod.normalize()
+        settings_mod.save(args.settings, current)
+        print(f"Reset {args.settings}")
+    for key, (_, _, label) in settings_mod.SCHEMA.items():
+        print(f"  {key:<13} {current[key]!s:<18} {label}")
+    return 0
+
+
+def cmd_verify(args):
+    from .verify import run_all
+
+    settings = resolve_settings(args)
+    total = sum(len(g.items) for g in GROUPS.values())
+    print(f"Checking {total} reactions in {len(GROUPS)} groups against API, calculator page"
+          + ("" if args.skip_sde else " and EVE SDE") + " ...", file=sys.stderr)
+    report = run_all(settings, client=Client(per_second=args.rate), workers=args.workers,
+                     skip_sde=args.skip_sde, progress=progress_printer(total, sys.stderr.isatty()))
+    if sys.stderr.isatty():
+        sys.stderr.write("\r" + " " * 30 + "\r")
+    if args.json:
+        json.dump(report, sys.stdout, indent=2)
+        print()
+        return 1 if any(not i["known"] for i in report["issues"]) or report["errors"] else 0
+    print(f"\n{'Group':<16} {'Reactions':>9} {'API ok':>7} {'= page':>7}  Program uses")
+    for key, st in report["stats"].items():
+        g = GROUPS[key]
+        print(f"{key:<16} {st['total']:>9} {st['api_ok']:>7} {st['match']:>7}  "
+              f"{'API' if g.source == 'api' else 'calculator page (fallback)'}")
+    for err in report["errors"]:
+        print(f"ERROR: {err}")
+    known = [i for i in report["issues"] if i["known"]]
+    new = [i for i in report["issues"] if not i["known"]]
+    if known:
+        print(f"\nKnown API problems (handled by the calculator page fallback):")
+        for key in dict.fromkeys(i["group"] for i in known):
+            count = sum(1 for i in known if i["group"] == key)
+            print(f"  {key}: {count} reactions - {GROUPS[key].issue}")
+    if new:
+        print(f"\n{len(new)} findings:")
+        for i in new:
+            print(f"  [{i['check']}] {i['group']}: {i['name']}: {i['message']}")
+    else:
+        print("\nNo new findings.")
+    return 1 if new or report["errors"] else 0
+
+
+def cmd_serve(args):
+    from .server import serve
+
+    serve(args.host, args.port, args.settings)
+    return 0
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="reactionding",
+                                description="EVE Online reactions profit calculator "
+                                            "(data from reactions.coalition.space)")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    calc = sub.add_parser("calc", help="profit table for all (or selected) reactions")
+    calc.add_argument("groups", nargs="*", help="group or calculator names (default: all)")
+    calc.add_argument("--source", choices=("auto", "api", "web"), default="auto")
+    calc.add_argument("--sort", choices=("profit", "profit_percent", "profit_per_hour"),
+                      help="one ranked list instead of per-group tables")
+    calc.add_argument("--top", type=int, help="only show the best N rows")
+    calc.add_argument("--format", choices=("table", "csv", "json"), default="table")
+    calc.add_argument("--full", action="store_true", help="json: include full calculation detail")
+    calc.add_argument("--workers", type=int, default=4)
+    calc.add_argument("--rate", type=float, default=5.0, help="max API requests per second")
+    add_settings_args(calc)
+    calc.set_defaults(func=cmd_calc)
+
+    show = sub.add_parser("show", help="detailed breakdown of one reaction")
+    show.add_argument("query", help="reaction name (or part of it) or type id")
+    show.add_argument("--group", help="limit to one group, e.g. strong_chain")
+    show.add_argument("--source", choices=("auto", "api", "web"), default="auto")
+    add_settings_args(show)
+    show.set_defaults(func=cmd_show)
+
+    lst = sub.add_parser("list", help="list all known reactions")
+    lst.add_argument("groups", nargs="*")
+    lst.set_defaults(func=cmd_list)
+
+    st = sub.add_parser("settings", help="show or change saved settings")
+    st.add_argument("--set", nargs="+", metavar="KEY=VALUE")
+    st.add_argument("--reset", action="store_true")
+    st.add_argument("--settings", default=SETTINGS_FILE)
+    st.set_defaults(func=cmd_settings)
+
+    ver = sub.add_parser("verify", help="check every reaction: API vs calculator page vs EVE SDE")
+    ver.add_argument("--skip-sde", action="store_true")
+    ver.add_argument("--json", action="store_true")
+    ver.add_argument("--workers", type=int, default=4)
+    ver.add_argument("--rate", type=float, default=5.0)
+    add_settings_args(ver)
+    ver.set_defaults(func=cmd_verify)
+
+    srv = sub.add_parser("serve", help="start the web interface")
+    srv.add_argument("--host", default="127.0.0.1")
+    srv.add_argument("--port", type=int, default=8765)
+    srv.add_argument("--settings", default=SETTINGS_FILE)
+    srv.set_defaults(func=cmd_serve)
+    return p
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    try:
+        return args.func(args)
+    except settings_mod.SettingsError as exc:
+        print(f"Invalid setting: {exc}", file=sys.stderr)
+        return 2
+    except KeyError as exc:
+        print(exc.args[0], file=sys.stderr)
+        return 2
+    except ApiError as exc:
+        print(f"Request failed: {exc}", file=sys.stderr)
+        return 1

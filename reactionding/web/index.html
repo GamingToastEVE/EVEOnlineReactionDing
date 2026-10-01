@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EVE Reaction Ding</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171c22; --panel2: #1e252d; --line: #2b343e;
+    --text: #d9e1e8; --muted: #8b98a5; --accent: #e3a33b;
+    --good: #2f7d4a; --good-bg: rgba(47,125,74,.18); --bad: #a8403a; --bad-bg: rgba(168,64,58,.16);
+    --warn: #b8862b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; color: var(--accent); letter-spacing: .3px; }
+  header .status { color: var(--muted); font-size: 13px; margin-left: auto; }
+  main { padding: 12px 16px 40px; max-width: 1400px; margin: 0 auto; }
+  form#settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                  gap: 8px 12px; background: var(--panel); border: 1px solid var(--line);
+                  padding: 12px; border-radius: 6px; }
+  form#settings label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+  input, select, button { font: inherit; color: var(--text); background: var(--panel2);
+                          border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; }
+  input:focus, select:focus { outline: 1px solid var(--accent); }
+  .actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: progress; }
+  nav.tabs { display: flex; gap: 4px; margin: 14px 0 8px; flex-wrap: wrap; }
+  nav.tabs button { border-radius: 4px 4px 0 0; }
+  nav.tabs button.active { background: var(--accent); color: #111; border-color: var(--accent); }
+  section.group { margin: 18px 0; }
+  section.group h2 { font-size: 15px; margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--panel2);
+           border: 1px solid var(--line); color: var(--muted); font-weight: normal; }
+  .badge.web { border-color: var(--warn); color: var(--warn); }
+  .note { font-size: 12px; color: var(--warn); font-weight: normal; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 5px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { background: var(--panel2); text-align: right; font-weight: 600; cursor: pointer; user-select: none; }
+  th:first-child, td:first-child { text-align: left; }
+  td { text-align: right; }
+  th.sorted::after { content: " ▾"; color: var(--accent); }
+  th.sorted.asc::after { content: " ▴"; }
+  tr.row { cursor: pointer; }
+  tr.row.good { background: var(--good-bg); }
+  tr.row.bad { background: var(--bad-bg); }
+  tr.row:hover { filter: brightness(1.25); }
+  tr.row.err td { color: var(--bad); }
+  td.pos { color: #6fd08e; } td.neg { color: #f08a80; }
+  tr.detail td { background: var(--panel); text-align: left; white-space: normal; padding: 10px 14px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .detail-grid table th { cursor: default; }
+  .detail-grid h4 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
+  .tag { color: var(--muted); font-size: 12px; }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .error { color: #f08a80; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EVE Reaction Ding</h1>
+  <span class="tag">Reaction profits via reactions.coalition.space</span>
+  <span class="status" id="status">Loading…</span>
+</header>
+<main>
+  <form id="settings" autocomplete="off"></form>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="content"><div class="empty">Press <b>Calculate</b> to load all reactions.</div></div>
+</main>
+<script>
+"use strict";
+const LABELS = {
+  input: "In Method", inMarket: "In Market", output: "Out Method", outMarket: "Out Market",
+  brokers: "Broker Fee %", sales: "Sales Tax %", skill: "Reactions", facility: "Facility",
+  rigs: "Rig", space: "Space", system: "System", tax: "IndyTax %", scc: "SCC %",
+  duration: "Build Time (min)", cycles: "Cycles", costIndex: "Cost Index % (WH)",
+  prismaticite: "Prismaticite %",
+};
+const OPTION_TEXT = { rigs: { 0: "No Rig", 1: "Tech 1 Rig", 2: "Tech 2 Rig" },
+                      facility: { medium: "medium Refinery", large: "large Refinery" },
+                      skill: { 1: "Level 1", 2: "Level 2", 3: "Level 3", 4: "Level 4", 5: "Level 5" } };
+const COLS = [
+  ["name", "Reaction"], ["inputs", "Inputs"], ["taxes", "Tax"], ["output", "Output"],
+  ["profit", "Profit"], ["profitPercent", "% prof."], ["profitPerHour", "Profit / h"],
+];
+let META = null, ROWS = [], TAB = "all";
+const sortState = {};
+const isk = v => v == null ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+const pct = v => v == null ? "–" : v.toFixed(2) + " %";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const $ = id => document.getElementById(id);
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify(body) } : {});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function buildForm() {
+  const form = $("settings");
+  for (const [key, spec] of Object.entries(META.schema)) {
+    const value = META.settings[key];
+    let field;
+    if (spec.kind === "enum" || spec.kind === "int_enum" || spec.kind === "market") {
+      field = `<select name="${key}">` + spec.rule.map(o =>
+        `<option value="${o}" ${String(o) === String(value) ? "selected" : ""}>${esc((OPTION_TEXT[key] || {})[o] || o)}</option>`).join("") + "</select>";
+    } else {
+      const num = spec.kind !== "str";
+      const range = num ? `min="${spec.rule[0]}" max="${spec.rule[1]}" step="any"` : "";
+      field = `<input name="${key}" ${num ? 'type="number"' : ""} ${range} value="${esc(value)}">`;
+    }
+    form.insertAdjacentHTML("beforeend", `<label title="${esc(spec.label)}">${LABELS[key] || key}${field}</label>`);
+  }
+  form.insertAdjacentHTML("beforeend", `<div class="actions">
+      <button type="submit" class="primary" id="calc">Calculate</button>
+      <label style="flex-direction:row;align-items:center;gap:6px">Source
+        <select id="source"><option value="auto">auto (API + fallback)</option>
+        <option value="api">API only</option><option value="web">calculator page only</option></select></label>
+      <button type="button" id="save">Save as default</button>
+      <button type="button" id="reset">Reset</button>
+      <button type="button" id="csv">Export CSV</button></div>`);
+  form.addEventListener("submit", e => { e.preventDefault(); run(); });
+  $("save").onclick = async () => {
+    try { await api("/api/settings", { settings: formSettings() }); status("Settings saved."); }
+    catch (e) { status(e.message, true); }
+  };
+  $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; };
+  $("csv").onclick = exportCsv;
+  updateCostIndex();
+  form.elements.space.addEventListener("change", updateCostIndex);
+}
+
+function updateCostIndex() {
+  const form = $("settings");
+  form.elements.costIndex.disabled = form.elements.space.value !== "wormhole";
+}
+
+function formSettings() {
+  const out = {};
+  for (const el of $("settings").elements) if (el.name) out[el.name] = el.value;
+  return out;
+}
+
+function status(text, error) { const s = $("status"); s.textContent = text; s.className = "status" + (error ? " error" : ""); }
+
+function buildTabs() {
+  const tabs = [["all", "All"], ...Object.entries(META.calculators), ["ranking", "Ranking"]];
+  $("tabs").innerHTML = tabs.map(([k, t]) => `<button type="button" data-tab="${k}" class="${k === TAB ? "active" : ""}">${esc(t)}</button>`).join("");
+  $("tabs").onclick = e => { const k = e.target.dataset.tab; if (k) { TAB = k; buildTabs(); render(); } };
+}
+
+async function run() {
+  const settings = formSettings(), source = $("source").value;
+  $("calc").disabled = true;
+  ROWS = [];
+  const groups = META.groups;
+  try {
+    // web-sourced groups share one page request per calculator, so batch those
+    const batches = [];
+    const webKeys = groups.filter(g => (source === "auto" ? g.source : source) === "web").map(g => g.key);
+    for (const calc of Object.keys(META.calculators)) {
+      const keys = webKeys.filter(k => groups.find(g => g.key === k).calculator === calc);
+      if (keys.length) batches.push(keys);
+    }
+    for (const g of groups) if (!webKeys.includes(g.key)) batches.push([g.key]);
+    let done = 0;
+    const warns = new Set();
+    const total = groups.reduce((n, g) => n + g.items.length, 0);
+    for (const keys of batches) {
+      status(`Calculating… ${done}/${total} reactions`);
+      const data = await api("/api/calc", { settings, source, groups: keys });
+      ROWS.push(...data.rows);
+      (data.warnings || []).forEach(w => warns.add(w));
+      done += data.rows.length;
+      render();
+    }
+    const errors = ROWS.filter(r => r.error).length;
+    status(`${ROWS.length} reactions calculated ${new Date().toLocaleTimeString()}` + (errors ? ` – ${errors} errors` : "")
+           + [...warns].map(w => " ⚠ " + w).join(""), errors > 0 || warns.size > 0);
+  } catch (e) {
+    status(e.message, true);
+  } finally {
+    $("calc").disabled = false;
+  }
+}
+
+function sortRows(rows, id) {
+  const st = sortState[id];
+  if (!st) return rows;
+  const dir = st.asc ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const x = a[st.key], y = b[st.key];
+    if (typeof x === "string") return dir * x.localeCompare(y);
+    return dir * ((x ?? -Infinity) - (y ?? -Infinity));
+  });
+}
+
+function tableHtml(id, rows, showGroup) {
+  const st = sortState[id] || {};
+  const head = COLS.map(([k, t]) => `<th data-sort="${k}" data-table="${id}" class="${st.key === k ? "sorted" + (st.asc ? " asc" : "") : ""}">${t}</th>`).join("");
+  const body = sortRows(rows, id).map(r => {
+    const key = `${r.group}:${r.id}`;
+    if (r.error) return `<tr class="row err" data-key="${key}"><td>${esc(r.name)}</td><td colspan="6">${esc(r.error)}</td></tr>`;
+    const cls = r.profit > 0 ? "good" : "bad";
+    const label = showGroup ? `${esc(r.name)} <span class="tag">${esc(r.groupTitle)}</span>` : esc(r.name);
+    return `<tr class="row ${cls}" data-key="${key}"><td>${label}</td><td>${isk(r.inputs)}</td><td>${isk(r.taxes)}</td>
+      <td>${isk(r.output)}</td><td class="${r.profit >= 0 ? "pos" : "neg"}">${isk(r.profit)}</td>
+      <td>${pct(r.profitPercent)}</td><td>${isk(r.profitPerHour)}</td></tr>`;
+  }).join("");
+  return `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function render() {
+  const content = $("content");
+  if (!ROWS.length) { content.innerHTML = '<div class="empty">Calculating…</div>'; return; }
+  if (TAB === "ranking") {
+    if (!sortState.ranking) sortState.ranking = { key: "profit", asc: false };
+    content.innerHTML = `<section class="group"><h2>All reactions ranked</h2>${tableHtml("ranking", ROWS.filter(r => !r.error), true)}</section>`;
+    return;
+  }
+  const html = [];
+  for (const g of META.groups) {
+    if (TAB !== "all" && g.calculator !== TAB) continue;
+    const rows = ROWS.filter(r => r.group === g.key);
+    if (!rows.length) continue;
+    const src = rows[0].source;
+    html.push(`<section class="group"><h2>${esc(g.title)} <span class="badge ${src}">${src === "web" ? "calculator page" : "API"}</span>
+      ${src === "web" && g.issue ? `<span class="note">⚠ ${esc(g.issue)}</span>` : ""}</h2>${tableHtml(g.key, rows, false)}</section>`);
+  }
+  content.innerHTML = html.join("") || '<div class="empty">Nothing calculated for this tab yet.</div>';
+}
+
+$("content").addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]");
+  if (th) {
+    const id = th.dataset.table, key = th.dataset.sort, cur = sortState[id];
+    sortState[id] = { key, asc: cur && cur.key === key ? !cur.asc : key === "name" };
+    render();
+    return;
+  }
+  const tr = e.target.closest("tr.row");
+  if (!tr) return;
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("detail")) { next.remove(); return; }
+  const [group, id] = tr.dataset.key.split(":");
+  const row = ROWS.find(r => r.group === group && String(r.id) === id);
+  if (row && row.result) tr.insertAdjacentHTML("afterend", `<tr class="detail"><td colspan="7">${detailHtml(row)}</td></tr>`);
+});
+
+function detailHtml(row) {
+  const r = row.result, t = r.taxes || {}, m = t.market || {}, c = r.cycle_data || {};
+  const inputs = (r.input || []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td><td>${isk(x.price)}</td><td>${isk(x.market_tax)}</td></tr>`).join("");
+  const left = (Array.isArray(r.remaining) ? r.remaining : []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td><td>${isk(x.price)}</td></tr>`).join("");
+  const o = r.output || {};
+  const tax = [["System cost", t.system], ["Facility", t.facility], ["SCC", t.scc],
+               ["Broker (inputs)", (m.inputs || {}).brokers], ["Broker (output)", (m.output || {}).brokers],
+               ["Sales tax", (m.output || {}).sales], ["Total", r.taxes_total]]
+    .map(([k, v]) => `<tr><td>${k}</td><td>${isk(v)}</td></tr>`).join("");
+  return `<div class="detail-grid">
+    <div><h4>Inputs</h4><table><tr><th>Item</th><th>Quantity</th><th>Price</th><th>Market tax</th></tr>${inputs}
+      <tr><td><b>Output: ${esc(o.name || "")}</b></td><td>${isk(o.quantity)}</td><td>${isk(o.price)}</td><td></td></tr></table>
+      ${left ? `<h4 style="margin-top:10px">Left over</h4><table><tr><th>Item</th><th>Quantity</th><th>Value</th></tr>${left}</table>` : ""}</div>
+    <div><h4>Taxes</h4><table>${tax}</table>
+      <p class="tag">Runs: ${isk(r.runs)}${c.cycle_time ? ` · cycle time ${isk(c.cycle_time)} s` : ""} · window ${isk(c.total_time)} min · type id ${row.id} · source ${row.source}</p></div>
+  </div>`;
+}
+
+function exportCsv() {
+  if (!ROWS.length) return status("Nothing to export – calculate first.", true);
+  const head = ["Calculator", "Group", "Reaction", "Type ID", "Source", "Inputs", "Tax", "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"];
+  const q = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const lines = [head.join(",")].concat(ROWS.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id, r.source,
+    r.inputs, r.taxes, r.output, r.profit, r.profitPercent, r.profitPerHour, r.runs, r.error].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  a.download = `reactions-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+(async () => {
+  try {
+    META = await api("/api/meta");
+    buildForm(); buildTabs();
+    status("Ready.");
+  } catch (e) { status(e.message, true); }
+})();
+</script>
+</body>
+</html>
