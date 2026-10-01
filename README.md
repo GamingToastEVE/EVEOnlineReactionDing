@@ -95,6 +95,19 @@ betroffenen Gruppe wieder auf `api` gestellt werden.
 Die API erlaubt ca. 90 Anfragen pro Minute; das Programm drosselt sich selbst (`--rate`,
 Standard 5/s) und wiederholt bei `429`.
 
+## Spreadsheet prüfen
+
+`check-sheet` liest alle fest eingetragenen Reaction-Rezepte aus einem Workbook (z.B. „Operation
+Moonshine“) und vergleicht sie mit der Website: Inputs, Mengen pro Run, Output pro Run, Fuel-Block-Typ,
+Moon-Goo- und Fuel-Bedarf in den Planungsblättern. Das braucht zusätzlich `openpyxl`:
+
+```bash
+pip install openpyxl
+python -m reactionding check-sheet Operation_MoonShine_GT.xlsx --fixes   # mit Korrekturformeln
+```
+
+Das Ergebnis für die aktuelle Version steht in [docs/sheet-check.md](docs/sheet-check.md).
+
 ## Tests
 
 ```bash

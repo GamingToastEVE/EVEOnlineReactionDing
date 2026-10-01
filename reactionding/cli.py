@@ -233,6 +233,31 @@ def cmd_verify(args):
     return 1 if new or report["errors"] else 0
 
 
+def cmd_check_sheet(args):
+    try:
+        from .sheetcheck import check_workbook
+    except ImportError:
+        print("check-sheet needs openpyxl: pip install openpyxl", file=sys.stderr)
+        return 2
+    print("Loading base recipes from the API and reading the workbook ...", file=sys.stderr)
+    report = check_workbook(args.file, client=Client(per_second=args.rate))
+    if args.json:
+        json.dump({"errors": report["errors"],
+                   "sheets": {k: [vars(f) for f in v] for k, v in report["sheets"].items()}},
+                  sys.stdout, indent=2, ensure_ascii=False)
+        print()
+    else:
+        for err in report["errors"]:
+            print(f"ERROR: {err}")
+        for sheet, findings in report["sheets"].items():
+            print(f"\n== {sheet}: " + (f"{len(findings)} findings" if findings else "OK"))
+            for f in findings:
+                print(f"  {f.cell:<14} {f.reaction}: {f.message}")
+                if f.fix and args.fixes:
+                    print(f"  {'':<14} suggested: {f.fix}")
+    return 1 if report["errors"] or any(report["sheets"].values()) else 0
+
+
 def cmd_serve(args):
     from .server import serve
 
@@ -283,6 +308,14 @@ def build_parser():
     ver.add_argument("--rate", type=float, default=5.0)
     add_settings_args(ver)
     ver.set_defaults(func=cmd_verify)
+
+    chk = sub.add_parser("check-sheet",
+                         help="check the reaction formulas of a spreadsheet (.xlsx) against the website")
+    chk.add_argument("file")
+    chk.add_argument("--fixes", action="store_true", help="print suggested corrected formulas")
+    chk.add_argument("--json", action="store_true")
+    chk.add_argument("--rate", type=float, default=5.0)
+    chk.set_defaults(func=cmd_check_sheet)
 
     srv = sub.add_parser("serve", help="start the web interface")
     srv.add_argument("--host", default="127.0.0.1")
