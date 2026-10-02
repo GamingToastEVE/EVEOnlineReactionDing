@@ -5,6 +5,7 @@ import csv
 import json
 import sys
 
+from . import esi
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS, find_items, groups_for
 from .client import ApiError, Client
@@ -36,7 +37,11 @@ def add_settings_args(parser):
 def resolve_settings(args):
     base = settings_mod.load(args.settings)
     overrides = {k: getattr(args, k) for k in settings_mod.SCHEMA if getattr(args, k, None) is not None}
-    return settings_mod.normalize(overrides, base)
+    values = settings_mod.normalize(overrides, base)
+    values, notes = esi.check_system(values)
+    for note in notes:
+        print(note, file=sys.stderr)
+    return values
 
 
 def progress_printer(total, enabled):
@@ -261,14 +266,15 @@ def cmd_check_sheet(args):
 def cmd_serve(args):
     from .server import serve
 
-    serve(args.host, args.port, args.settings)
+    serve(args.host, args.port, args.settings, open_browser=args.open)
     return 0
 
 
 def build_parser():
     p = argparse.ArgumentParser(prog="reactionding",
                                 description="EVE Online reactions profit calculator "
-                                            "(data from reactions.coalition.space)")
+                                            "(data from reactions.coalition.space). "
+                                            "Without a command the web interface opens.")
     sub = p.add_subparsers(dest="command", required=True)
 
     calc = sub.add_parser("calc", help="profit table for all (or selected) reactions")
@@ -321,11 +327,16 @@ def build_parser():
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8765)
     srv.add_argument("--settings", default=SETTINGS_FILE)
+    srv.add_argument("--open", action="store_true", help="open the interface in the web browser")
     srv.set_defaults(func=cmd_serve)
     return p
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        # started without arguments (e.g. double-clicked .exe): open the web interface
+        argv = ["serve", "--open"]
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
@@ -338,3 +349,17 @@ def main(argv=None):
     except ApiError as exc:
         print(f"Request failed: {exc}", file=sys.stderr)
         return 1
+
+
+def run():
+    """Process entry point (python -m reactionding and the .exe)."""
+    import os
+
+    try:
+        code = main()
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # Output was piped into a program that stopped reading (e.g. `| head`).
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        code = 0
+    sys.exit(code)

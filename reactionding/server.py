@@ -2,9 +2,11 @@
 
 import json
 import threading
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
+from . import esi
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS
 from .client import ApiError, Client
@@ -61,6 +63,7 @@ def make_handler(settings_path):
                     return self._send(200, {"settings": values})
                 if self.path == "/api/calc":
                     values = settings_mod.normalize(body.get("settings"))
+                    values, notes = esi.check_system(values)
                     groups = [GROUPS[k] for k in body.get("groups") or GROUPS if k in GROUPS]
                     source = body.get("source", "auto")
                     if source not in ("auto", "api", "web"):
@@ -68,6 +71,7 @@ def make_handler(settings_path):
                     rows = calculate(values, groups, source=source, client=client)
                     return self._send(200, {"settings": values,
                                             "warnings": warnings(values, rows),
+                                            "notes": notes,
                                             "rows": [r.to_dict(full=True) for r in rows]})
             except (settings_mod.SettingsError, ValueError) as exc:
                 return self._send(400, {"error": str(exc)})
@@ -78,9 +82,19 @@ def make_handler(settings_path):
     return Handler
 
 
-def serve(host="127.0.0.1", port=8765, settings_path="settings.json"):
-    server = ThreadingHTTPServer((host, port), make_handler(settings_path))
-    print(f"EVE Reaction Ding running at http://{host}:{port}/  (Ctrl+C to stop)")
+def serve(host="127.0.0.1", port=8765, settings_path="settings.json", open_browser=False):
+    url = f"http://{host}:{port}/"
+    try:
+        server = ThreadingHTTPServer((host, port), make_handler(settings_path))
+    except OSError:
+        # Port taken - most likely the program is already running (second double-click).
+        print(f"Port {port} is in use, opening {url}")
+        if open_browser:
+            webbrowser.open(url)
+        return
+    print(f"EVE Reaction Ding running at {url}  (close this window or press Ctrl+C to stop)")
+    if open_browser:
+        threading.Timer(0.8, webbrowser.open, (url,)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

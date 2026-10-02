@@ -13,15 +13,32 @@ Abgedeckt sind alle 177 Reactions in 15 Gruppen:
 | Composite Reactions | Simple Reactions · Complex Reactions · Complex Chain Reactions · Unrefined Reactions (not reprocessed) · Unrefined Reactions (55% Efficiency) · Unrefined Mineral Reactions (no reprocessing) · Unrefined Mineral Reactions (MAX Refine 90.63%) |
 | Biochemical Reactions | Synth Booster Reactions · Standard Booster Reactions · Improved Booster Reactions · Improved Booster Chain Reactions · Strong Booster Reactions · Strong Booster Chain Reactions · Molecular-Forging Reactions |
 
-Benötigt nur **Python 3.9+**, keine weiteren Pakete.
+Benötigt nur **Python 3.9+**, keine weiteren Pakete. Für Windows gibt es alternativ eine fertige
+**`EVEReactionDing.exe`** (siehe unten), die ohne Python läuft.
+
+## Windows-Programm (.exe)
+
+`EVEReactionDing.exe` **doppelklicken**: Ein Konsolenfenster startet den lokalen Server, die
+Oberfläche öffnet sich im Browser (<http://127.0.0.1:8765/>). Fenster schließen = Programm beenden.
+Die Einstellungen landen als `settings.json` neben der .exe.
+
+Alle Befehle gehen auch in der Eingabeaufforderung, z.B. `EVEReactionDing.exe calc --sort profit --top 10`
+oder `EVEReactionDing.exe check-sheet Operation_MoonShine_GT.xlsx --fixes`.
+
+Die .exe ist nicht signiert. Windows SmartScreen meldet deshalb beim ersten Start „Der Computer wurde
+durch Windows geschützt“. Mit **Weitere Informationen → Trotzdem ausführen** startet sie.
+
+Selbst bauen (unter Windows): `pip install pyinstaller openpyxl` und `python packaging/build_exe.py`.
+Der GitHub-Workflow `.github/workflows/build-exe.yml` baut sie bei jeder Änderung auf einem
+Windows-Server und hängt sie als Artefakt an.
 
 ## Web-Oberfläche
 
 ```bash
-python -m reactionding serve
+python -m reactionding            # oder: python -m reactionding serve --open
 ```
 
-Dann <http://127.0.0.1:8765/> öffnen. Dort gibt es:
+Öffnet <http://127.0.0.1:8765/> im Browser. Dort gibt es:
 
 - alle Settings des Calculators (In/Out Method + Market, Broker Fee, Sales Tax, Reactions-Skill,
   Facility, Rig, Space, System, IndyTax, SCC, Build Time, Cycles, Cost Index, Prismaticite)
@@ -51,8 +68,10 @@ Jede Einstellung lässt sich auch einmalig per Option überschreiben, z. B.
 `--space wormhole --costIndex 4.5 --input sell`. `python -m reactionding calc --help` zeigt alle.
 
 Gültige Märkte sind **Jita, Amarr, Perimeter** (andere Namen bewertet die API stillschweigend mit
-0 ISK, daher lehnt das Programm sie ab). Der System-Name muss exakt wie im Spiel geschrieben sein
-(Groß-/Kleinschreibung) – sonst sind die System-Kosten 0; das Programm warnt dann.
+0 ISK, daher lehnt das Programm sie ab). Den System-Namen prüft das Programm über die offizielle
+EVE-API (ESI): Die Schreibweise wird automatisch korrigiert (`ignoitton` → `Ignoitton`, die
+Calculator-API unterscheidet Groß-/Kleinschreibung), unbekannte Systeme werden abgelehnt, und der
+aktuelle Reaction Cost Index des Systems wird angezeigt.
 
 ## Datenquellen und Korrektheit
 

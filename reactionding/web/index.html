@@ -173,18 +173,21 @@ async function run() {
     }
     for (const g of groups) if (!webKeys.includes(g.key)) batches.push([g.key]);
     let done = 0;
-    const warns = new Set();
+    const warns = new Set(), notes = new Set();
     const total = groups.reduce((n, g) => n + g.items.length, 0);
     for (const keys of batches) {
       status(`Calculating… ${done}/${total} reactions`);
       const data = await api("/api/calc", { settings, source, groups: keys });
       ROWS.push(...data.rows);
       (data.warnings || []).forEach(w => warns.add(w));
+      (data.notes || []).forEach(n => notes.add(n));
+      if (data.settings.system !== $("settings").elements.system.value) $("settings").elements.system.value = data.settings.system;
       done += data.rows.length;
       render();
     }
     const errors = ROWS.filter(r => r.error).length;
     status(`${ROWS.length} reactions calculated ${new Date().toLocaleTimeString()}` + (errors ? ` – ${errors} errors` : "")
+           + [...notes].map(n => " · " + n).join("")
            + [...warns].map(w => " ⚠ " + w).join(""), errors > 0 || warns.size > 0);
   } catch (e) {
     status(e.message, true);

@@ -1,0 +1,30 @@
+name: Build Windows exe
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["reactionding/**", "packaging/**", "tests/**", ".github/workflows/build-exe.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: python -m pip install pyinstaller openpyxl
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Build exe
+        run: python packaging/build_exe.py
+      - name: Smoke test exe
+        run: |
+          dist\EVEReactionDing.exe --help
+          dist\EVEReactionDing.exe list hybrid
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EVEReactionDing-windows
+          path: dist/EVEReactionDing.exe

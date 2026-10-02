@@ -157,3 +157,32 @@ class VerifyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EsiSystemCheckTest(unittest.TestCase):
+    def setUp(self):
+        from reactionding import esi
+        self.esi = esi
+        self._resolve, self._index = esi.resolve_system, esi.reaction_cost_index
+        esi.resolve_system = lambda name: {"ignoitton": (30002647, "Ignoitton")}.get(name.lower())
+        esi.reaction_cost_index = lambda system_id: 0.1029
+
+    def tearDown(self):
+        self.esi.resolve_system, self.esi.reaction_cost_index = self._resolve, self._index
+
+    def test_corrects_case_and_reports_index(self):
+        values, notes = self.esi.check_system(settings.normalize({"system": "ignoitton"}))
+        self.assertEqual(values["system"], "Ignoitton")
+        self.assertIn("10.29 %", notes[-1])
+
+    def test_unknown_system_rejected(self):
+        with self.assertRaises(settings.SettingsError):
+            self.esi.check_system(settings.normalize({"system": "Foobar"}))
+
+    def test_network_error_keeps_settings(self):
+        def boom(name):
+            raise self.esi.EsiError("offline")
+        self.esi.resolve_system = boom
+        values, notes = self.esi.check_system(settings.normalize({"system": "X"}))
+        self.assertEqual(values["system"], "X")
+        self.assertIn("offline", notes[0])
