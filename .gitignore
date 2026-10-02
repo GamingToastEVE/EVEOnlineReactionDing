@@ -4,3 +4,4 @@ settings.json
 build/
 dist/
 planner.json
+campaign.json

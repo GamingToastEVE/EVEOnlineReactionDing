@@ -8,7 +8,7 @@ from importlib import resources
 
 from pathlib import Path
 
-from . import esi, production, sde
+from . import esi, production, sde, tracker
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS
 from .client import ApiError, Client
@@ -19,6 +19,7 @@ def make_handler(settings_path):
     client = Client()
     lock = threading.Lock()
     planner_path = Path(settings_path).with_name("planner.json")
+    campaign_path = Path(settings_path).with_name("campaign.json")
     cache = {}
 
     def recipes():
@@ -36,6 +37,28 @@ def make_handler(settings_path):
             return json.loads(planner_path.read_text("utf-8"))
         except (OSError, ValueError):
             return {"runsPerJob": 544, "jobs": {}, "components": {}, "stock": ""}
+
+    def load_campaign():
+        try:
+            return json.loads(campaign_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            return tracker.new_campaign()
+
+    def save_campaign(campaign):
+        with lock:
+            campaign_path.write_text(json.dumps(campaign, indent=1), encoding="utf-8")
+
+    def campaign_from(body):
+        campaign = body.get("campaign")
+        if not isinstance(campaign, dict) or not campaign.get("months"):
+            raise ValueError("campaign missing")
+        return campaign
+
+    def month_index(body, campaign):
+        index = int(body.get("index", len(campaign["months"]) - 1))
+        if not 0 <= index < len(campaign["months"]):
+            raise ValueError("month index out of range")
+        return index
 
     def checked_settings(body):
         values = settings_mod.normalize(body.get("settings"))
@@ -85,6 +108,7 @@ def make_handler(settings_path):
                     "complex": sorted(n for n, r in rec.items() if r["group"] == "complex"),
                     "hybrid": sorted(n for n, r in rec.items() if r["group"] == "hybrid"),
                     "simple": sorted(n for n, r in rec.items() if r["group"] == "simple"),
+                    "campaign": load_campaign(),
                     "components": [n for n, c in comps.items() if not c["capital"]],
                     "capital": [n for n, c in comps.items() if c["capital"]],
                     "sde": cache.get("sde"),
@@ -116,6 +140,31 @@ def make_handler(settings_path):
                     rec, comps = recipes()
                     return self._send(200, {"notes": notes, "sde": cache.get("sde"),
                                             "chain": production.cost_chain(rec, values, components=comps)})
+                if self.path in ("/api/campaign/plan", "/api/campaign/close", "/api/campaign/reopen"):
+                    campaign = campaign_from(body)
+                    index = month_index(body, campaign)
+                    rec, comps = recipes()
+                    notes = []
+                    if self.path == "/api/campaign/reopen":
+                        months = campaign["months"]
+                        nxt = months[index + 1] if index + 1 < len(months) else None
+                        if nxt and (index + 2 < len(months) or nxt.get("track") or nxt.get("bought")
+                                    or nxt.get("stock") or any((nxt.get("orders") or {}).values())):
+                            raise ValueError("The next month is already in use - it cannot be undone.")
+                        if nxt:
+                            months.pop()
+                        months[index]["closed"] = False
+                        months[index].pop("summary", None)
+                    values, notes = checked_settings(body)
+                    plan = tracker.plan_month(rec, comps, values, campaign, index)
+                    if self.path == "/api/campaign/close":
+                        tracker.close_month(campaign, index, plan, repeat_orders=bool(body.get("repeat")))
+                        index += 1
+                        plan = tracker.plan_month(rec, comps, values, campaign, index)
+                    save_campaign(campaign)
+                    return self._send(200, {"notes": notes, "campaign": campaign, "index": index, "plan": plan,
+                                            "overview": tracker.overview(campaign),
+                                            "stageNames": tracker.STAGE_NAMES})
                 if self.path == "/api/plan":
                     values, notes = checked_settings(body)
                     state = body.get("plan") or {}

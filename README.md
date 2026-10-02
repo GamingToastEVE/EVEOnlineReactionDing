@@ -48,7 +48,7 @@ python -m reactionding            # oder: python -m reactionding serve --open
 Öffnet <http://127.0.0.1:8765/> im Browser. Oben stehen die Einstellungen (Broker Fee, Sales Tax,
 Reactions-Skill, Facility, Rig, Space, System, IndyTax, SCC, Build Time, Cycles, Cost Index,
 Prismaticite, **Component ME %**). Darunter gibt es drei Bereiche, überall mit **Buy, Split und Sell
-als Spalten nebeneinander**:
+als Spalten nebeneinander**. Die Einstellungen sind eingeklappt, oben steht eine Zusammenfassung:
 
 1. **Reactions:** alle 177 Reactions mit **Cost Buy | Cost Split | Cost Sell | Profit Buy |
    Profit Split | Profit Sell**, sortierbar, mit Ranking-Tab. Klick auf eine Reaction zeigt die
@@ -61,16 +61,35 @@ als Spalten nebeneinander**:
    Goo → Simple → Complex → T2- und Capital-T2-Komponenten), gegen den Jita-Preis. Spalten: Jita
    Buy/Split/Sell, Cost Buy/Split/Sell, Profit Buy/Split/Sell, Marge, Profit pro Run. Wie Blatt 7
    ohne Job-Kosten und Gebühren, aber mit Rig-Bonus (Reaction ME) und Component ME.
-3. **Planner (Nachbau Blatt 8.1, mit den korrigierten Formeln):** Jobs für Complex/Hybrid Reactions
-   und Stückzahlen für Komponenten eintragen, Lager aus EVE einfügen (Inventar markieren, Strg+C).
-   Ergebnis:
-   - automatische Complex-Jobs für die Komponenten
-   - benötigte Simple-Reaction-Jobs (abzüglich Lager)
-   - **Einkaufsliste** für Moon Goo und Fuel Blocks mit Kosten Buy/Split/Sell
-   - Button **„Copy for EVE Multibuy“**
+3. **Monthly planner (Nachbau Blatt 8.1 als Pipeline über 1–3 Monate):** Ein Reaction-Job
+   (544 Runs) dauert etwa einen Monat. Jeder Monat kann bei Bedarf einen **neuen Durchlauf ab Null**
+   starten. Wie lange er dauert, hängt davon ab, was man reagieren will:
 
-   Material wird wie im Spiel pro Job berechnet: `max(Runs, aufrunden(Runs × Menge × (1 − Bonus)))`.
-   **Save plan** speichert den Plan in `planner.json`.
+   | Auftrag | Monat 1 | Monat 2 | Monat 3 |
+   |---|---|---|---|
+   | Simple / Hybrid Reaction | Reaction | – | – |
+   | Complex Reaction | Simple Reactions dafür | Complex Reaction | – |
+   | Komponente (T2 / Capital T2) | Simple Reactions | Complex Reactions | Komponente bauen |
+
+   - **Lager:** wird zu jedem Monatsbeginn aus EVE eingefügt (Inventar, Strg+A, Strg+C).
+   - **Stufe 2 und 3 laufen nur mit dem, was wirklich im Lager ist.** Sind die Simple Reactions
+     nicht fertig oder nicht im eingefügten Lager, ist der Complex-Job *blockiert* und wandert in
+     den nächsten Monat (er wird nicht auf die Einkaufsliste gesetzt). Ebenso werden nur so viele
+     Komponenten gebaut, wie Complex-Produkte da sind.
+   - **Reaction-Slots:** zuerst laufende Jobs, dann Stufe 2, dann übertragene Jobs, dann Stufe 1.
+     Was nicht passt, steht unter „No slot“ und wandert weiter.
+   - **Tracking:** pro Job „Started“ und „Done“, pro Komponente „Built“, pro Einkauf gekaufte Menge
+     und gezahlter Preis. Die Einkaufsliste zeigt den Rest mit Kosten Buy/Split/Sell und Total.
+     „Copy remaining for EVE Multibuy“ kopiert, was noch fehlt.
+   - **Checkliste** pro Monat (Lager einfügen, einkaufen, Jobs installieren, Komponenten bauen,
+     Jobs abliefern, Monat abschließen). Vieles hakt sich durch das Tracking selbst ab.
+   - **Monat abschließen:** Unfertige, blockierte und verschobene Jobs sowie ungebaute Komponenten
+     wandern in den nächsten Monat. Auf Wunsch starten die Aufträge dort als neuer Durchlauf.
+     „Undo close“ macht das rückgängig, solange der neue Monat unbenutzt ist.
+   - **Overview:** pro Monat erledigte Jobs, Übertrag, Ausgaben, produzierter Wert und Gewinn
+     (Buy/Split/Sell).
+
+   Alles wird in `campaign.json` neben der .exe gespeichert.
 
 ## Kommandozeile
 
@@ -84,7 +103,7 @@ python -m reactionding show "Methanofullerene"       # Detailansicht einer React
 python -m reactionding show "Strong Frentix" --group strong_chain
 python -m reactionding list                          # alle Reactions mit Type ID
 python -m reactionding chain complex components       # Kostenkette (Blatt 7)
-python -m reactionding plan --job "Fullerides=2" --component "Antimatter Reactor Unit=1000" --stock lager.txt
+python -m reactionding plan --job "Fullerides=2" --component "Antimatter Reactor Unit=1000" --stock lager.txt   # einmaliger Plan ohne Monate
 python -m reactionding settings --set skill=4 rigs=1  # Defaults speichern
 python -m reactionding verify                        # alle Reactions auf Korrektheit prüfen
 ```
