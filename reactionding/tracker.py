@@ -390,13 +390,27 @@ def _copy_orders(month):
     return {"jobs": dict(o.get("jobs") or {}), "components": dict(o.get("components") or {})}
 
 
-def overview(campaign):
-    """Per month: jobs done, money spent, value produced (stored when the month was closed)."""
+def overview(campaign, live=None):
+    """Per month: jobs done, money spent, value produced.
+
+    Closed months use the values stored when they were closed. ``live`` ({index: plan}) gives
+    the current numbers of open months (marked with ``live``)."""
     rows = []
-    for m in campaign["months"]:
+    for i, m in enumerate(campaign["months"]):
         s = m.get("summary") or {}
-        rows.append({"month": m["id"], "closed": m.get("closed", False),
-                     "jobsDone": s.get("jobsDone"), "jobsCarried": s.get("jobsCarried"),
-                     "spent": s.get("spent"), "producedValue": s.get("producedValue"),
-                     "profit": {k: v - (s.get("spent") or 0) for k, v in (s.get("producedValue") or {}).items()}})
+        row = {"month": m["id"], "closed": m.get("closed", False), "note": s.get("note"),
+               "jobsDone": s.get("jobsDone"), "jobsCarried": s.get("jobsCarried"),
+               "unitsBuilt": s.get("unitsBuilt"), "jobsTotal": None,
+               "spent": s.get("spent"), "producedValue": s.get("producedValue"), "plannedValue": None,
+               "toBuy": None, "live": False}
+        plan = (live or {}).get(i)
+        if plan and not row["closed"]:
+            jobs = plan["stage1"] + plan["stage2"]
+            row.update(live=True, jobsDone=sum(ln["done"] for ln in jobs),
+                       jobsTotal=sum(ln["count"] for ln in jobs),
+                       unitsBuilt=sum(s3["done"] for s3 in plan["stage3"]),
+                       spent=plan["spent"], producedValue=plan["producedValue"],
+                       plannedValue=plan["plannedValue"], toBuy=plan["shoppingTotal"])
+        row["profit"] = {k: v - (row["spent"] or 0) for k, v in (row["producedValue"] or {}).items()}
+        rows.append(row)
     return rows

@@ -230,7 +230,7 @@ def plan(recipes, settings, state, prices=None, components=None):
                 continue  # produced above
             raw_need[mat] = raw_need.get(mat, 0) + n * job_quantity(qty, runs, bonus)
 
-    names = set(raw_need) | {t["name"] for t in top} | set(comp_plan)
+    names = set(raw_need) | {t["name"] for t in top} | set(comp_plan) | set(jobs_manual)
     prices = prices or prices_by_name(sorted(names))
     shopping = []
     totals = {m: 0.0 for m in MODES}
@@ -256,4 +256,44 @@ def plan(recipes, settings, state, prices=None, components=None):
     return {"runsPerJob": runs, "reactionMe": bonus, "componentMe": comp_bonus,
             "top": top, "simple": simple, "shopping": shopping, "shoppingTotal": totals,
             "productionValue": value, "stockItems": len(stock), "unknown": unknown,
-            "missingPrices": missing}
+            "missingPrices": missing, "prices": prices, "jobsPerReaction": jobs}
+
+
+def preview(recipes, settings, state, components=None, prices=None):
+    """Quick cost/profit estimate for a whole run (used by the plan creator).
+
+    Costs = all materials to buy for every stage (minus stock). Value = what comes out at
+    the end: the ordered components, complex/hybrid products not used for them and the
+    ordered simple reactions. Job install costs and market fees are not included."""
+    components = components if components is not None else load_components(recipes)
+    result = plan(recipes, settings, state, prices=prices, components=components)
+    prices, runs = result["prices"], result["runsPerJob"]
+    manual = {k: int(v) for k, v in (state.get("jobs") or {}).items() if int(v or 0) > 0}
+    comps = {k: int(v) for k, v in (state.get("components") or {}).items() if int(v or 0) > 0}
+    products = {}
+    for name, units in comps.items():
+        if name in components:
+            products[name] = products.get(name, 0) + units
+    for t in result["top"]:
+        rest = t["output"] - t["componentNeed"]
+        if rest > 0:
+            products[t["name"]] = products.get(t["name"], 0) + rest
+    for name, n in manual.items():
+        if recipes.get(name, {}).get("group") == "simple":
+            products[name] = products.get(name, 0) + n * runs * recipes[name]["out"]
+    value = {m: 0.0 for m in MODES}
+    lines = []
+    for name, qty in sorted(products.items()):
+        p = prices.get(name) or {}
+        v = {m: qty * p[m] if p.get(m) is not None else None for m in MODES}
+        for m in MODES:
+            value[m] += v[m] or 0.0
+        lines.append({"name": name, "quantity": qty, "value": v})
+    cost = result["shoppingTotal"]
+    stages = 3 if comps else 2 if any(t["group"] == "complex" and t["jobs"] for t in result["top"]) else 1
+    jobs = sum(result["jobsPerReaction"].values())
+    return {"cost": cost, "value": value, "products": lines,
+            "profit": {m: value[m] - cost[m] for m in MODES},
+            "margin": {m: (value[m] / cost[m] - 1) * 100 if cost[m] else None for m in MODES},
+            "months": stages, "jobs": jobs, "shoppingItems": len(result["shopping"]),
+            "unknown": result["unknown"], "missingPrices": result["missingPrices"]}

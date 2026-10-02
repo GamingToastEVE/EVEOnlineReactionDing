@@ -151,6 +151,93 @@
   .check input { width: 16px; height: 16px; accent-color: var(--accent); }
   .check.done span:first-of-type { color: var(--muted); text-decoration: line-through; }
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
+
+  /* ---------- planner v2 ---------- */
+  .planner-top + .card, .step-body > .card { margin-top: 14px; }
+  .toolbar .seg .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 4px; vertical-align: middle; }
+  details.opts { position: relative; }
+  details.opts > summary { list-style: none; }
+  details.opts > summary::-webkit-details-marker { display: none; }
+  details.opts .panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px; display: grid; gap: 10px; width: 250px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  details.opts .row { display: flex; gap: 8px; }
+  .month-head { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; }
+  .month-head h2 { margin: 0 0 2px; font-size: 20px; display: flex; gap: 10px; align-items: center; }
+  .badge.open { color: var(--accent); border-color: var(--accent); }
+  .money { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; flex-wrap: wrap; }
+  .m-tile { flex: 1 1 170px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .m-tile > span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .m-tile > b { font-size: 21px; font-variant-numeric: tabular-nums; }
+  .m-tile > small { color: var(--muted); font-size: 12px; }
+  .m-tile.big { border-color: var(--accent); background: var(--accent-dim); }
+  .m-tile.big > b { font-size: 25px; }
+  .m-op { align-self: center; color: var(--muted); font-size: 20px; }
+  @media (max-width: 900px) { .m-op { display: none; } }
+  b.pos, td.pos { color: var(--pos); } b.neg { color: var(--neg); }
+  .progress { height: 6px; background: var(--panel3); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
+  .progress > div { height: 100%; background: var(--pos); border-radius: 4px; transition: width .25s; }
+  .progress.wide { margin: 4px 0 8px; }
+  .stepper { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+  @media (max-width: 800px) { .stepper { grid-template-columns: 1fr 1fr; } }
+  .stepper button { display: flex; gap: 10px; align-items: center; text-align: left; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 12px; color: var(--text); cursor: pointer; font: inherit; }
+  .stepper button:hover { border-color: var(--muted); }
+  .stepper button.active { border-color: var(--accent); background: var(--accent-dim); }
+  .stepper .num { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--panel3); font-weight: 700; }
+  .stepper button.done .num { background: var(--pos); color: #0d1014; }
+  .stepper button.active .num { background: var(--accent); color: #15110a; }
+  .stepper b { display: block; font-size: 14px; }
+  .stepper small { display: block; color: var(--muted); font-size: 12px; }
+  .stage.s1 { background: #6aa9e6; } .stage.s2 { background: #b99cf0; } .stage.s3 { background: #e3a33b; }
+  ul.pipe { margin: 6px 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+  ul.pipe li { display: flex; gap: 8px; align-items: center; }
+  section.group h2 .grow { flex: 1; }
+  .checks { display: grid; gap: 6px; }
+  .rx { display: flex; gap: 10px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; flex-wrap: wrap; }
+  .rx.started { border-left-color: var(--accent); }
+  .rx.done { border-left-color: var(--pos); background: rgba(80, 200, 120, .06); }
+  .rx.done .rx-name b { text-decoration: line-through; color: var(--muted); }
+  .rx-name { flex: 1 1 320px; min-width: 0; }
+  .rx-name small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .tick { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; cursor: pointer; user-select: none; }
+  .tick input { width: 17px; height: 17px; accent-color: var(--pos); }
+  .struck { text-decoration: line-through; color: var(--muted); }
+  details.check-group > summary { list-style: none; }
+  details.check-group > summary::-webkit-details-marker { display: none; }
+  details.check-group > label { padding-left: 26px; }
+  .bars { display: flex; gap: 14px; align-items: flex-end; height: 210px; padding: 10px 4px 0; overflow-x: auto; }
+  .bar-month { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 76px; height: 100%; cursor: pointer; }
+  .bar-pair { flex: 1; display: flex; gap: 4px; align-items: flex-end; width: 100%; justify-content: center; }
+  .bar-pair .b { width: 24px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .b.cost, .legend i.cost { background: #c8575c; }
+  .b.value, .legend i.value { background: var(--pos); }
+  .b.value.planned, .legend i.value.planned { background: repeating-linear-gradient(45deg, var(--pos) 0 5px, transparent 5px 9px); border: 1px solid var(--pos); }
+  .bar-month span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .bar-month b { font-size: 13px; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+  table.gantt td, table.gantt th { text-align: center; width: 120px; }
+  table.gantt td.left, table.gantt th.left { text-align: left; width: auto; white-space: normal; }
+  #view a { color: var(--accent); text-decoration: none; } #view a:hover { text-decoration: underline; }
+  table.gantt td.left small { font-size: 12px; }
+  .gstage { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #15110a; }
+  .gstage.s1 { background: #6aa9e6; } .gstage.s2 { background: #b99cf0; } .gstage.s3 { background: #e3a33b; }
+  .gstage.past { opacity: .4; }
+  .gstage.now { box-shadow: 0 0 0 2px var(--text); }
+  .gstage.future { background: none; border: 1px dashed currentColor; color: var(--muted); }
+  dialog#createDlg { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(860px, 94vw); }
+  dialog#createDlg::backdrop { background: rgba(0,0,0,.6); }
+  .dlg { padding: 20px 22px; display: grid; gap: 12px; }
+  .dlg h2 { margin: 0; } .dlg h3 { margin: 4px 0 0; font-size: 14px; }
+  .dlg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .cp-list { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cp-list li { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 3px 6px 3px 12px; }
+  .cp-preview { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); transition: opacity .2s; }
+  .cp-preview.loading { opacity: .55; }
+  .small-money { margin-top: 0; } .small-money .m-tile > b { font-size: 18px; } .small-money .m-tile.big > b { font-size: 21px; }
+  table.mini { width: auto; margin-top: 10px; } table.mini td, table.mini th { padding: 3px 12px; text-align: right; }
+  table.mini td.hl { font-weight: 700; background: var(--panel2); }
 </style>
 </head>
 <body>
@@ -563,6 +650,16 @@ async function loadChain() {
 
 // ---------- monthly planner (sheet 8.1 as a 1-3 month pipeline) ----------
 const RUN_MONTHS = { simple: 1, hybrid: 1, complex: 2, component: 3, capital: 3 };
+const STEPS = [["plan", "Orders & stock"], ["buy", "Buy materials"], ["jobs", "Reaction checklist"], ["close", "Close month"]];
+const STAGE_TEXT = {
+  1: ["Simple + hybrid reactions", "Made from moon materials you buy. Their output feeds the complex reactions next month."],
+  2: ["Complex reactions", "Need the simple products from last month in stock – without them the jobs are blocked."],
+  3: ["Components", "Built from the complex products of last month."],
+};
+try { state.priceMode = localStorage.getItem("planPrice") || "split"; } catch { state.priceMode = "split"; }
+state.steps = {};
+const PM = () => state.priceMode;
+const pmText = () => `Jita ${MODE_TEXT[PM()]}`;
 function planItems() {
   const pm = state.planMeta;
   return [...pm.simple.map(n => [n, "jobs", "simple"]), ...pm.hybrid.map(n => [n, "jobs", "hybrid"]),
@@ -570,138 +667,429 @@ function planItems() {
           ...pm.components.map(n => [n, "components", "component"]), ...pm.capital.map(n => [n, "components", "capital"])];
 }
 const curMonth = () => state.campaign.months[state.monthIndex];
+function monthName(id, short) {
+  const [y, m] = id.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: short ? "short" : "long", year: "numeric" });
+}
+function nextId(id) { const [y, m] = id.split("-").map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`; }
+function kindMap() { return Object.fromEntries(planItems().map(([n, , k]) => [n, k])); }
+function runMonths(orders, kindOf) {
+  let n = 0;
+  for (const key of ["jobs", "components"]) for (const name of Object.keys((orders || {})[key] || {})) n = Math.max(n, RUN_MONTHS[kindOf[name]] || 1);
+  return n;
+}
+const orderCount = o => Object.keys((o || {}).jobs || {}).length + Object.keys((o || {}).components || {}).length;
+const bar = (done, total, cls = "") => `<div class="progress ${cls}"><div style="width:${total ? Math.min(100, done / total * 100) : 0}%"></div></div>`;
+const money = (v, signed) => `<b class="${signed ? sign(v) : ""}" title="${full(v)} ISK">${isk(v)}</b>`;
+
+// progress numbers of one month plan
+function progress(p) {
+  const jobs = [...p.stage1, ...p.stage2];
+  const sched = jobs.reduce((n, l) => n + l.scheduled, 0) + p.stage3.reduce((n, x) => n + x.buildable, 0);
+  const started = jobs.reduce((n, l) => n + Math.min(l.started, l.scheduled), 0) + p.stage3.reduce((n, x) => n + Math.min(x.done, x.buildable), 0);
+  const done = jobs.reduce((n, l) => n + Math.min(l.done, l.scheduled), 0) + p.stage3.reduce((n, x) => n + Math.min(x.done, x.buildable), 0);
+  const buyLeft = p.shopping.filter(x => x.remaining > 0).length;
+  const cost = (p.spent || 0) + (p.shoppingTotal[PM()] || 0);
+  return { sched, started, done, buyLeft, cost, profit: (p.plannedValue[PM()] || 0) - cost,
+           waiting: jobs.reduce((n, l) => n + l.blocked + l.postponed, 0) };
+}
+function stepState(step, p, month) {
+  if (!p) return { done: false, sub: "" };
+  const g = progress(p);
+  if (step === "plan") {
+    const n = orderCount(month.orders);
+    return { done: p.stockItems > 0 && (n > 0 || g.sched > 0), sub: `${n} order${n === 1 ? "" : "s"} · ${p.stockItems ? p.stockItems + " stock items" : "no stock pasted"}` };
+  }
+  if (step === "buy") return { done: !g.buyLeft, sub: g.buyLeft ? `${g.buyLeft} items left · ${isk(p.shoppingTotal[PM()])}` : "everything bought" };
+  if (step === "jobs") return { done: g.sched > 0 && g.done >= g.sched, sub: g.sched ? `${g.started}/${g.sched} started · ${g.done} done` : "no jobs" };
+  return { done: !!month.closed, sub: month.closed ? "closed" : "when all jobs are delivered" };
+}
+function defaultStep(p, month) {
+  if (month.closed) return "close";
+  if (!p || !stepState("plan", p, month).done) return "plan";
+  if (!stepState("buy", p, month).done) return "buy";
+  return "jobs";
+}
+
 async function renderPlanner() {
   if (!state.planMeta) {
     $("view").innerHTML = '<div class="empty">Loading recipes…</div>';
     try {
       state.planMeta = await api("/api/planner/meta");
       state.campaign = state.planMeta.campaign;
-      state.monthIndex = state.campaign.months.length - 1;
+      state.monthIndex = state.campaign.months.findIndex(m => !m.closed);
+      if (state.monthIndex < 0) state.monthIndex = state.campaign.months.length - 1;
     } catch (e) { status(e.message, "error"); return; }
-    return calcMonth();
+    return calcMonth(undefined, {}, false);
   }
-  const c = state.campaign, month = curMonth(), ro = month.closed;
-  const items = planItems(), kindOf = Object.fromEntries(items.map(([n, , k]) => [n, k]));
-  const monthTabs = c.months.map((m, i) => `<button data-month="${i}" class="${!state.showOverview && i === state.monthIndex ? "active" : ""}">${m.id}${m.closed ? " ✓" : ""}</button>`).join("")
-    + `<button data-month="overview" class="${state.showOverview ? "active" : ""}">Overview</button>`;
+  const c = state.campaign;
+  const monthTabs = `<button data-month="overview" class="${state.showOverview ? "active" : ""}">📊 Overview</button>`
+    + c.months.map((m, i) => `<button data-month="${i}" class="${!state.showOverview && i === state.monthIndex ? "active" : ""}">${monthName(m.id, true)} ${m.closed ? '<span class="muted">✓</span>' : '<span class="dot"></span>'}</button>`).join("");
   let html = `<div class="toolbar">
       <div class="seg" id="monthTabs">${monthTabs}</div>
+      <button class="btn primary" id="createPlan">＋ Create plan</button>
       <span class="grow"></span>
-      <label class="field inline">Runs per job <input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
-      <label class="field inline">Reaction slots <input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}" title="0 = no limit"></label>
-      <button class="btn small ghost" id="exportPlan" title="Save the whole plan (all months) as a file">Export plan</button>
-      <button class="btn small ghost" id="importPlan" title="Load a plan file (replaces the current plan)">Import plan</button>
-      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <span class="muted small">Prices</span>
+      <div class="seg" id="priceMode">${MODES.map(m => `<button data-pm="${m}" class="${m === PM() ? "active" : ""}" style="${m === PM() ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>
+      <details class="opts"><summary class="btn small ghost">⚙ Options</summary><div class="panel">
+        <label class="field">Runs per job<input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
+        <label class="field">Reaction slots (0 = no limit)<input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}"></label>
+        <div class="row"><button class="btn small" id="exportPlan" title="Save the whole plan (all months) as a file">Export plan</button>
+        <button class="btn small" id="importPlan" title="Load a plan file (replaces the current plan)">Import plan</button></div>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div></details>
     </div>`;
   if (state.showOverview) {
     $("view").innerHTML = html + overviewHtml();
     return bindPlanner();
   }
+  const month = curMonth(), p = state.monthPlan && state.monthPlan.month === month.id ? state.monthPlan : null;
+  const step = state.steps[month.id] || (state.steps[month.id] = defaultStep(p, month));
+  html += monthHeadHtml(month, p);
+  html += `<div class="stepper">` + STEPS.map(([k, t], i) => {
+    const s = stepState(k, p, month);
+    return `<button data-step="${k}" class="${k === step ? "active" : ""} ${s.done ? "done" : ""}">
+      <span class="num">${s.done ? "✓" : i + 1}</span><span><b>${t}</b><small>${esc(s.sub)}</small></span></button>`;
+  }).join("") + `</div>`;
+  html += `<div class="step-body">` + ({ plan: stepPlanHtml, buy: stepBuyHtml, jobs: stepJobsHtml, close: stepCloseHtml }[step])(month, p) + `</div>`;
+  $("view").innerHTML = html + createDialogHtml();
+  bindPlanner(planItems());
+}
+
+function monthHeadHtml(month, p) {
+  const runs = runMonths(month.orders, kindMap());
+  let html = `<div class="month-head"><div><h2>${monthName(month.id)} <span class="badge ${month.closed ? "" : "open"}">${month.closed ? "closed" : "open"}</span></h2>
+    <div class="muted small">${orderCount(month.orders) ? `New run started this month · ${runs} month${runs > 1 ? "s" : ""} long (until ${monthName(Array.from({ length: runs - 1 }).reduce(nextId, month.id), true)})` : "No new run this month"}
+    ${p && p.waves.stage2 && p.stage2.length ? ` · continues the run of ${monthName(p.waves.stage2, true)}` : ""}
+    ${p && p.waves.stage3 && p.stage3.length ? ` · components of the run of ${monthName(p.waves.stage3, true)}` : ""}</div></div>`;
+  if (!p) return html + "</div>";
+  const g = progress(p), pm = PM();
+  html += `<div class="money">
+    <div class="m-tile"><span>Costs</span>${money(g.cost)}<small>${isk(p.spent)} spent + ${isk(p.shoppingTotal[pm])} still to buy</small></div>
+    <div class="m-op">→</div>
+    <div class="m-tile"><span>Value of the products</span>${money(p.plannedValue[pm])}<small>${isk(p.producedValue[pm])} already finished</small></div>
+    <div class="m-op">=</div>
+    <div class="m-tile big"><span>Expected profit</span>${money(g.profit, true)}<small>${g.cost ? pct(g.profit / g.cost * 100) + " on costs" : ""} · ${pmText()}</small></div>
+    <div class="m-tile"><span>Jobs done</span><b>${g.done} / ${g.sched}</b>${bar(g.done, g.sched)}<small>${g.started} started${g.waiting ? ` · <span class="note">${g.waiting} waiting</span>` : ""}</small></div>
+  </div>`;
+  return html + "</div>";
+}
+
+// ----- step 1: orders + stock -----
+function stepPlanHtml(month, p) {
+  const ro = month.closed, kindOf = kindMap(), items = planItems();
   const orders = [...Object.entries(month.orders.jobs || {}).map(([name, n]) => ({ name, key: "jobs", n })),
                   ...Object.entries(month.orders.components || {}).map(([name, n]) => ({ name, key: "components", n }))];
   const orderRows = orders.length ? orders.map(o => {
       const k = kindOf[o.name] || "?";
       return `<tr><td class="left">${esc(o.name)} <span class="kind">${k}</span></td>
         <td><input type="number" min="1" step="1" data-order="${o.key}" data-name="${esc(o.name)}" value="${o.n}" ${ro ? "disabled" : ""}></td>
-        <td class="left muted small">${o.key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k] || "?"} month run</td>
+        <td class="left muted small">${o.key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k] || "?"} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
         <td>${ro ? "" : `<button class="x" data-remove="${o.key}" data-name="${esc(o.name)}" title="Remove">×</button>`}</td></tr>`;
     }).join("")
-    : `<tr><td class="left muted" colspan="4">No new run this month. Add reactions or components to start one from zero.</td></tr>`;
-  html += `<div class="planner-top">
-    <div class="card"><h3>New run started in ${month.id}</h3>
+    : `<tr><td class="left muted" colspan="4">No new run this month. Add what you want to make – the simple reactions it needs are added automatically.</td></tr>`;
+  let pipe = "";
+  if (p) {
+    const parts = [];
+    if (p.stage1.length) parts.push(`<li><span class="stage s1">1</span> ${p.stage1.reduce((n, l) => n + l.count, 0)} simple/hybrid jobs <span class="muted">(${monthName(month.id, true)})</span></li>`);
+    if (p.stage2.length) parts.push(`<li><span class="stage s2">2</span> ${p.stage2.reduce((n, l) => n + l.count, 0)} complex jobs from the run of ${monthName(p.waves.stage2 || month.id, true)}</li>`);
+    if (p.stage3.length) parts.push(`<li><span class="stage s3">3</span> ${p.stage3.reduce((n, x) => n + x.units, 0)} components from the run of ${monthName(p.waves.stage3 || month.id, true)}</li>`);
+    pipe = `<div class="card"><h3>This month</h3>${parts.length ? `<ul class="pipe">${parts.join("")}</ul>` : '<p class="muted">Nothing to do yet.</p>'}
+      <p class="muted small">Simple reactions run first. Complex reactions start the month after, when their inputs are in stock. Components come in the third month.</p></div>`;
+  }
+  return `<div class="planner-top">
+    <div class="card"><h3>What do you want to make? <span class="muted small">(new run from ${monthName(month.id, true)})</span></h3>
       ${ro ? "" : `<div class="add-row">
         <input id="addName" list="planItems" placeholder="Reaction or component, e.g. Fullerides or Antimatter Reactor Unit">
         <input id="addQty" type="number" min="1" step="1" placeholder="Jobs / units">
         <button class="btn" id="addBtn">Add</button>
       </div>
       <datalist id="planItems">${items.map(([n, , k]) => `<option value="${esc(n)}">${k} · ${RUN_MONTHS[k]} month run</option>`).join("")}</datalist>`}
-      <div class="orders tablewrap"><table><thead><tr><th class="left">Order</th><th>Quantity</th><th class="left"></th><th></th></tr></thead><tbody>${orderRows}</tbody></table></div>
-      <p class="muted small">Run length depends on the order: simple and hybrid reactions 1 month · complex reactions 2 months
-        (simple first, complex next month) · components 3 months. Reactions in jobs, components in units.</p>
+      <div class="orders tablewrap"><table><thead><tr><th class="left">Order</th><th>Quantity</th><th class="left">Run length</th><th></th></tr></thead><tbody>${orderRows}</tbody></table></div>
     </div>
-    <div class="card"><h3>Stock at the start of ${month.id}</h3>
-      <textarea class="stock" id="stock" ${ro ? "disabled" : ""} placeholder="Paste from EVE: select all items in the inventory (Ctrl+A), copy (Ctrl+C), paste here.">${esc(month.stock || "")}</textarea>
-      <p class="muted small">Include the output of last month's finished jobs – the next stage takes its inputs from here.</p>
-    </div></div>
-    <div class="planner-actions">
-      ${ro ? `<span class="badge">closed</span><button class="btn" id="reopen">Undo close</button>`
-           : `<button class="btn primary" id="runPlan">Calculate</button>
-              <button class="btn" id="closeMonth">Close ${month.id} …</button>
-              <label class="field inline"><input type="checkbox" id="repeat"> repeat these orders as a new run in ${nextId(month.id)}</label>`}
-    </div>`;
-  if (state.monthPlan) html += monthHtml(state.monthPlan, ro);
-  $("view").innerHTML = html;
-  bindPlanner(items);
+    <div class="card"><h3>Your stock at the start of ${monthName(month.id, true)}</h3>
+      <textarea class="stock" id="stock" ${ro ? "disabled" : ""} placeholder="In EVE: open the inventory, Ctrl+A, Ctrl+C – then paste here (Ctrl+V).">${esc(month.stock || "")}</textarea>
+      <p class="muted small">${p ? `${p.stockItems} items recognised. ` : ""}Paste again every month – including the products of last month's finished jobs.</p>
+    </div></div>${pipe}
+    ${ro ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="buy">Next: buy materials →</button></div>`}`;
 }
-function nextId(id) { const [y, m] = id.split("-").map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`; }
-function monthHtml(p, ro) {
-  const vals = obj => `<div class="vals">${MODES.map(m => `<div><span style="color:var(--${m})">${MODE_TEXT[m]}</span><b title="${full(obj[m])}">${isk(obj[m])}</b></div>`).join("")}</div>`;
-  let html = `<div class="kpis">
-    <div class="kpi"><div class="label">Reaction slots</div><div class="single">${p.slotsUsed} <span class="muted small">/ ${p.slots || "∞"} used</span>
-      ${p.postponed ? `<span class="note"> · ${p.postponed} jobs postponed</span>` : ""}</div></div>
-    <div class="kpi"><div class="label">Still to buy</div>${vals(p.shoppingTotal)}</div>
-    <div class="kpi"><div class="label">Spent (tracked purchases)</div><div class="single" title="${full(p.spent)}">${isk(p.spent)}</div></div>
-    <div class="kpi"><div class="label">Value of finished jobs / planned</div>${vals(p.producedValue)}<div class="muted small" style="margin-top:4px">planned: ${MODES.map(m => isk(p.plannedValue[m])).join(" / ")}</div></div>
-  </div>`;
-  html += `<div class="card checklist"><h3>Checklist ${p.month} <span class="muted small" style="text-transform:none;letter-spacing:0">· ${p.checklist.filter(i => i.done).length} / ${p.checklist.length} done</span></h3>`
-    + p.checklist.map(i => `<label class="check ${i.done ? "done" : ""}"><input type="checkbox" data-check="${esc(i.key)}" ${i.done ? "checked" : ""} ${i.auto || ro ? "disabled" : ""}>
-        <span>${esc(i.text)}</span>${i.auto ? ' <span class="muted small">(from tracking)</span>' : ""}</label>`).join("") + "</div>";
-  const jobCols = stage => [
-    { key: "name", title: "Reaction", left: true, html: r => esc(r.name) + (r.carried ? ` <span class="kind">carried ${r.carried}</span>` : "") },
-    { key: "count", title: "Jobs", fmt: num }, { key: "running", title: "Running", fmt: num },
-    { key: "scheduled", title: "This month", fmt: num },
-    ...(stage === 2 ? [{ key: "blocked", title: "Blocked", tip: () => "simple products missing in stock", html: r => r.blocked ? `<span class="note">${num(r.blocked)}</span>` : "0" }] : []),
-    { key: "postponed", title: "No slot", fmt: num },
-    { key: "started", title: "Started", html: r => `<input class="track" type="number" min="0" max="${r.count}" data-track="${r.key}" data-field="started" value="${r.started}" ${ro ? "disabled" : ""}>` },
-    { key: "done", title: "Done", html: r => `<input class="track" type="number" min="0" max="${r.count}" data-track="${r.key}" data-field="done" value="${r.done}" ${ro ? "disabled" : ""}>` },
-    { key: "outputPerJob", title: "Output", value: r => r.scheduled * r.outputPerJob, fmt: num },
-    ...triple("Output value", "value", { pick: (r, m) => r.value[m] }),
+
+// ----- step 2: shopping -----
+function stepBuyHtml(month, p) {
+  if (!p) return "";
+  const ro = month.closed, pm = PM();
+  if (!p.shopping.length) return `<div class="empty">Nothing to buy this month.</div>`;
+  const cols = [
+    { key: "name", title: "Item", left: true, html: r => `<span class="${r.remaining ? "" : "struck"}">${esc(r.name)}</span>` + (r.kind !== "raw" ? ` <span class="kind">${r.kind}</span>` : "") + (r.note ? warnIcon([r.note]) : "") },
+    { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "In stock", fmt: num }, { key: "toBuy", title: "To buy", fmt: num },
+    { key: "bought", title: "Bought", html: r => `<input class="track" type="number" min="0" data-buy="${esc(r.name)}" data-field="qty" value="${r.bought || ""}" placeholder="0" ${ro ? "disabled" : ""}>` },
+    { key: "paid", title: "Paid / unit", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid || ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
+    { key: "remaining", title: "Still to buy", html: r => r.remaining ? num(r.remaining) : '<span class="pos">✓</span>' },
+    { key: "price", title: `${pmText()} / unit`, cls: pm, sep: true, value: r => r.price[pm], fmt: unit },
+    { key: "cost", title: "Cost of the rest", cls: pm, value: r => r.cost[pm] },
   ];
-  const section = (n, title, wave, body) => `<section class="group"><h2><span class="stage">Stage ${n}</span> ${title}
-      ${wave ? `<span class="badge">run started ${wave}</span>` : ""}</h2>${body}</section>`;
+  const foot = () => `<tr class="total"><td class="left">Total</td><td colspan="${cols.length - 2}" class="muted small">${isk(p.spent)} spent so far</td><td title="${full(p.shoppingTotal[pm])}">${isk(p.shoppingTotal[pm])}</td></tr>`;
+  return `<div class="toolbar">
+      <button class="btn" id="copyBuy">📋 Copy for EVE Multibuy</button>
+      ${ro ? "" : `<button class="btn ghost" id="allBought" title="Fill in everything as bought at the current ${pmText()} price">Mark all as bought</button>`}
+      <button class="btn ghost" id="csvBuy">Export CSV</button>
+      <span class="grow"></span><span class="muted small">Enter what you bought – the list updates and the money spent counts into the profit.</span>
+    </div>` + tableHtml("m_shop", p.shopping, cols, { foot }) +
+    (ro ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="jobs">Next: start the reactions →</button></div>`);
+}
+
+// ----- step 3: reaction checklist -----
+function stepJobsHtml(month, p) {
+  if (!p) return "";
+  const ro = month.closed, pm = PM();
+  let html = "";
+  for (const n of [1, 2]) {
+    const lines = p[`stage${n}`];
+    if (!lines.length) continue;
+    const sched = lines.reduce((a, l) => a + l.scheduled, 0), done = lines.reduce((a, l) => a + Math.min(l.done, l.scheduled), 0);
+    const started = lines.reduce((a, l) => a + Math.min(l.started, l.scheduled), 0);
+    html += `<section class="group"><h2><span class="stage s${n}">Stage ${n}</span> ${STAGE_TEXT[n][0]}
+        ${p.waves[`stage${n}`] ? `<span class="badge">run of ${monthName(p.waves[`stage${n}`], true)}</span>` : ""}
+        <span class="grow"></span><span class="muted small">${started}/${sched} started · ${done}/${sched} done</span>
+        ${ro ? "" : `<button class="btn small ghost" data-all="started" data-stage="${n}">All started</button><button class="btn small ghost" data-all="done" data-stage="${n}">All done</button>`}</h2>
+      ${bar(done, sched, "wide")}<p class="muted small">${STAGE_TEXT[n][1]}</p>
+      <div class="checks">` + lines.map(l => {
+        const isDone = l.scheduled > 0 && l.done >= l.scheduled, isStarted = l.scheduled > 0 && l.started >= l.scheduled;
+        const wait = l.blocked + l.postponed;
+        return `<div class="rx ${isDone ? "done" : isStarted ? "started" : ""}">
+          <div class="rx-name"><b>${esc(l.name)}</b>${l.carried ? ` <span class="kind">carried ${l.carried}</span>` : ""}
+            <small>${l.scheduled} job${l.scheduled === 1 ? "" : "s"} this month${l.running ? ` (${l.running} already running)` : ""} → ${num(l.scheduled * l.outputPerJob)} units · ${isk(l.value[pm])}
+            ${l.blocked ? ` · <span class="note">${l.blocked} blocked (inputs missing)</span>` : ""}${l.postponed ? ` · <span class="note">${l.postponed} no free slot</span>` : ""}</small></div>
+          ${l.scheduled ? `<label class="tick"><input type="checkbox" data-tick="started" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isStarted ? "checked" : ""} ${ro ? "disabled" : ""}> started</label>
+          <input class="track" type="number" min="0" max="${l.count}" data-track="${l.key}" data-field="started" value="${l.started}" ${ro ? "disabled" : ""} title="jobs started">
+          <label class="tick"><input type="checkbox" data-tick="done" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isDone ? "checked" : ""} ${ro ? "disabled" : ""}> done</label>
+          <input class="track" type="number" min="0" max="${l.count}" data-track="${l.key}" data-field="done" value="${l.done}" ${ro ? "disabled" : ""} title="jobs delivered">
+          <span class="muted small">of ${l.scheduled}</span>` : `<span class="note small">${wait} waiting – moves to next month</span>`}
+        </div>`;
+      }).join("") + `</div>` +
+      (n === 2 && p.blocked ? `<p class="warn">⚠ ${p.blocked} complex jobs are blocked: their simple products are not in your stock. Finish the simple reactions, paste the stock again – until then they move to the next month.</p>` : "") +
+      `</section>`;
+  }
   if (p.stage3.length) {
-    html += section(3, "Components", p.waves.stage3, tableHtml("m_s3", p.stage3, [
-      { key: "name", title: "Component", left: true, fmt: x => esc(x) }, { key: "units", title: "Units", fmt: num },
-      { key: "buildable", title: "Buildable now", fmt: num },
-      { key: "blocked", title: "Blocked", html: r => r.blocked ? `<span class="note">${num(r.blocked)}</span>` : "0" },
-      { key: "done", title: "Built", html: r => `<input class="track" type="number" min="0" max="${r.units}" data-track="${r.key}" data-field="done" value="${r.done}" ${ro ? "disabled" : ""}>` },
-      { key: "inputs", title: "Complex products (need / in stock)", left: true, html: r => r.inputs.map(i => `${esc(i.name)} ${num(i.need)} / ${num(i.fromStock)}${i.missing ? ` <span class="note">(${num(i.missing)} missing)</span>` : ""}`).join("<br>") },
-      ...triple("Value", "value", { pick: (r, m) => r.value[m] })]));
+    html += `<section class="group"><h2><span class="stage s3">Stage 3</span> ${STAGE_TEXT[3][0]}
+        ${p.waves.stage3 ? `<span class="badge">run of ${monthName(p.waves.stage3, true)}</span>` : ""}</h2><p class="muted small">${STAGE_TEXT[3][1]}</p><div class="checks">`
+      + p.stage3.map(x => `<div class="rx ${x.buildable && x.done >= x.buildable ? "done" : ""}">
+          <div class="rx-name"><b>${esc(x.name)}</b><small>${num(x.units)} units · ${num(x.buildable)} buildable now${x.blocked ? ` · <span class="note">${num(x.blocked)} blocked</span>` : ""} · ${isk(x.value[pm])}<br>
+            needs ${x.inputs.map(i => `${esc(i.name)} ${num(i.need)}${i.missing ? ` <span class="note">(${num(i.missing)} missing)</span>` : ""}`).join(", ")}</small></div>
+          <label class="tick"><input type="checkbox" data-tick="done" data-key="${esc(x.key)}" data-max="${x.buildable}" ${x.buildable && x.done >= x.buildable ? "checked" : ""} ${ro || !x.buildable ? "disabled" : ""}> built</label>
+          <input class="track" type="number" min="0" max="${x.units}" data-track="${x.key}" data-field="done" value="${x.done}" ${ro ? "disabled" : ""}>
+          <span class="muted small">of ${num(x.buildable)}</span></div>`).join("") + `</div></section>`;
   }
-  if (p.stage2.length) html += section(2, "Complex reactions", p.waves.stage2, tableHtml("m_s2", p.stage2, jobCols(2))
-    + (p.blocked ? `<p class="warn">⚠ ${p.blocked} complex jobs are blocked: the simple products are not in the stock of ${p.month}.
-       They can only run once the simple reactions are finished and pasted with the stock – until then they move to the next month.</p>` : ""));
-  if (p.stage1.length) html += section(1, "Simple + hybrid reactions", p.waves.stage1, tableHtml("m_s1", p.stage1, jobCols(1)));
-  if (!p.stage1.length && !p.stage2.length && !p.stage3.length) html += `<div class="empty" style="margin-top:14px">Nothing to do in ${p.month}. Add an order to start a run.</div>`;
-  if (p.shopping.length) {
-    html += `<section class="group"><h2>Shopping list ${p.month}
-        <button class="btn small" id="copyBuy">Copy remaining for EVE Multibuy</button>
-        <button class="btn small ghost" id="csvBuy">Export CSV</button></h2>`
-      + tableHtml("m_shop", p.shopping, [
-        { key: "name", title: "Item", left: true, html: r => esc(r.name) + (r.kind !== "raw" ? ` <span class="kind">${r.kind}</span>` : "") + (r.note ? warnIcon([r.note]) : "") },
-        { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "Stock", fmt: num }, { key: "toBuy", title: "To buy", fmt: num },
-        { key: "bought", title: "Bought", html: r => `<input class="track" type="number" min="0" data-buy="${esc(r.name)}" data-field="qty" value="${r.bought || ""}" placeholder="0" ${ro ? "disabled" : ""}>` },
-        { key: "paid", title: "Paid / unit", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid || ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
-        { key: "remaining", title: "Remaining", fmt: num },
-        ...triple("Jita price per unit", "price", { fmt: unit, pick: (r, m) => r.price[m] }),
-        ...triple("Cost of remaining", "cost", { pick: (r, m) => r.cost[m] })],
-        { foot: cols => totalRow(cols, "cost_", p.shoppingTotal) }) + "</section>";
+  if (!html) return `<div class="empty">No reactions this month. Add an order in step 1.</div>`;
+  return html + (ro ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="close">Next: close the month →</button></div>`);
+}
+
+// ----- step 4: close -----
+function stepCloseHtml(month, p) {
+  if (!p) return "";
+  const ro = month.closed;
+  const groups = [], other = [];
+  for (const i of p.checklist) {
+    const m = /^(install|build)\|/.test(i.key) && /^Stage (\d)/.exec(i.text);
+    if (m) {
+      let g = groups.find(x => x.stage === m[1]);
+      if (!g) groups.push(g = { stage: m[1], items: [] });
+      g.items.push(i);
+    } else other.push(i);
   }
-  html += `<p class="muted small">${p.runsPerJob} runs per job · reaction ME ${(p.reactionMe * 100).toFixed(2)} % · ${p.stockItems} stock items recognised
-    · slots: running jobs first, then stage 2, then carried jobs, then stage 1 · unfinished and postponed jobs move to the next month when it is closed</p>`;
+  const item = i => `<label class="check ${i.done ? "done" : ""}"><input type="checkbox" data-check="${esc(i.key)}" ${i.done ? "checked" : ""} ${i.auto || ro ? "disabled" : ""}>
+      <span>${esc(i.text)}</span>${i.auto ? ' <span class="muted small">(automatic)</span>' : ""}</label>`;
+  const doneN = p.checklist.filter(i => i.done).length;
+  let list = other.slice(0, 2).map(item).join("");
+  for (const g of groups) {
+    const d = g.items.filter(i => i.done).length;
+    list += `<details class="check-group"><summary class="check ${d === g.items.length ? "done" : ""}"><input type="checkbox" ${d === g.items.length ? "checked" : ""} disabled>
+      <span>Stage ${g.stage}: start ${g.items.length} reactions</span> <span class="muted small">${d}/${g.items.length} · see reaction checklist</span></summary>${g.items.map(item).join("")}</details>`;
+  }
+  list += other.slice(2).map(item).join("");
+  const open = [...p.stage1, ...p.stage2].reduce((n, l) => n + l.count - l.done, 0);
+  const units = p.stage3.reduce((n, x) => n + x.units - x.done, 0);
+  return `<div class="planner-top">
+    <div class="card checklist"><h3>Checklist ${monthName(month.id, true)} <span class="muted small">${doneN} / ${p.checklist.length} done</span></h3>${bar(doneN, p.checklist.length)}${list}</div>
+    <div class="card"><h3>${ro ? "Month closed" : "Close the month"}</h3>
+      ${ro ? `<p>${monthName(month.id)} is closed. Its values are in the overview.</p><button class="btn" id="reopen">Undo close</button>`
+      : `<p>When you close ${monthName(month.id, true)}:</p>
+        <ul class="pipe"><li>${open} unfinished, blocked or waiting jobs${units ? ` and ${units} unbuilt components` : ""} move to ${monthName(nextId(month.id), true)}</li>
+        <li>Costs and the value of finished jobs are stored for the overview</li></ul>
+        <label class="field inline"><input type="checkbox" id="repeat"> start the same orders again as a new run in ${monthName(nextId(month.id), true)}</label>
+        <div class="planner-actions"><button class="btn primary" id="closeMonth">Close ${monthName(month.id, true)}</button></div>`}
+    </div></div>`;
+}
+
+// ----- overview -----
+function overviewHtml() {
+  const rows = state.overview || [], pm = PM(), c = state.campaign, kindOf = kindMap();
+  if (!rows.length) return '<div class="empty">No months yet.</div>';
+  const sum = f => rows.reduce((n, r) => n + (f(r) || 0), 0);
+  const spent = sum(r => r.spent), value = sum(r => (r.producedValue || {})[pm]);
+  const live = rows.find(r => r.live);
+  const expCost = live ? (live.spent || 0) + ((live.toBuy || {})[pm] || 0) : 0;
+  const expValue = live ? (live.plannedValue || {})[pm] || 0 : 0;
+  let html = `<div class="money ov">
+    <div class="m-tile"><span>Spent in total</span>${money(spent)}<small>tracked purchases</small></div>
+    <div class="m-tile"><span>Value produced</span>${money(value)}<small>finished jobs · ${pmText()}</small></div>
+    <div class="m-tile big"><span>Profit so far</span>${money(value - spent, true)}<small>${spent ? pct((value - spent) / spent * 100) + " on costs" : "no purchases entered yet (step 2) – costs count as 0"}</small></div>
+    ${live ? `<div class="m-tile"><span>Expected this month (${monthName(live.month, true)})</span>${money(expValue - expCost, true)}<small>${isk(expValue)} value − ${isk(expCost)} costs</small></div>` : ""}
+  </div>`;
+  // money per month as bars
+  const vals = rows.map(r => {
+    const v = (r.live ? (r.plannedValue || {})[pm] : (r.producedValue || {})[pm]) || 0;
+    const cost = r.live ? (r.spent || 0) + ((r.toBuy || {})[pm] || 0) : r.spent || 0;
+    return { r, v, cost, profit: v - cost };
+  });
+  const max = Math.max(1, ...vals.map(x => Math.max(x.v, x.cost)));
+  html += `<div class="card"><h3>Costs and profit per month <span class="muted small">${pmText()} · open months: planned</span></h3><div class="bars">`
+    + vals.map(x => `<div class="bar-month" data-goto-month="${c.months.findIndex(m => m.id === x.r.month)}">
+        <div class="bar-pair"><div class="b cost" style="height:${x.cost / max * 100}%" title="Costs ${full(x.cost)} ISK"></div><div class="b value ${x.r.live ? "planned" : ""}" style="height:${x.v / max * 100}%" title="Value ${full(x.v)} ISK"></div></div>
+        <b class="${sign(x.profit)}">${x.cost || x.v ? isk(x.profit) : "–"}</b><span>${monthName(x.r.month, true)}${x.r.live ? " (open)" : ""}</span></div>`).join("")
+    + `</div><div class="legend"><span><i class="cost"></i>Costs</span><span><i class="value"></i>Value of products</span><span><i class="value planned"></i>planned (open month)</span></div></div>`;
+  // pipeline: which run is in which stage in which month
+  const runs = c.months.map((m, i) => ({ m, i, len: runMonths(m.orders, kindOf) })).filter(x => x.len);
+  if (runs.length) {
+    const last = Math.max(...runs.map(x => x.i + x.len - 1), c.months.length - 1);
+    const ids = []; let id = c.months[0].id;
+    for (let i = 0; i <= last; i++) { ids.push(id); id = nextId(id); }
+    const cur = state.campaign.months.findIndex(m => !m.closed);
+    html += `<div class="card"><h3>Runs</h3><div class="tablewrap"><table class="gantt"><thead><tr><th class="left">Run</th>${ids.map(x => `<th>${monthName(x, true)}</th>`).join("")}</tr></thead><tbody>`
+      + runs.map(x => {
+        const o = x.m.orders, names = [...Object.entries(o.jobs || {}), ...Object.entries(o.components || {})];
+        return `<tr><td class="left"><b>${monthName(x.m.id, true)}</b><small class="muted"> · ${names.length} orders</small><div class="muted small" title="${esc(names.map(([n, q]) => `${q} × ${n}`).join("\n"))}">${esc(names.slice(0, 3).map(([n, q]) => `${q}× ${n}`).join(", "))}${names.length > 3 ? " …" : ""}</div></td>`
+          + ids.map((_, j) => {
+            const s = j - x.i + 1;
+            if (s < 1 || s > x.len) return "<td></td>";
+            const st = j < cur || cur < 0 ? "past" : j === cur ? "now" : "future";
+            return `<td><span class="gstage s${s} ${st}" title="${STAGE_TEXT[s][0]}">${s === 1 ? "Simple" : s === 2 ? "Complex" : "Components"}</span></td>`;
+          }).join("") + "</tr>";
+      }).join("") + `</tbody></table></div><p class="muted small">Each run starts with simple reactions; complex reactions follow one month later, components another month later. Faded = done, outlined = upcoming.</p></div>`;
+  }
+  html += `<section class="group"><h2>Months</h2>` + tableHtml("m_over", rows, [
+    { key: "month", title: "Month", left: true, html: r => `<a href="#" data-goto-month="${c.months.findIndex(m => m.id === r.month)}">${monthName(r.month)}</a> <span class="kind">${r.closed ? "closed" : "open"}</span>${r.note ? ` <span class="muted small">${esc(r.note)}</span>` : ""}` },
+    { key: "jobsDone", title: "Jobs done", html: r => r.jobsDone == null ? "–" : num(r.jobsDone) + (r.jobsTotal != null ? ` / ${num(r.jobsTotal)}` : "") },
+    { key: "jobsCarried", title: "Carried over", fmt: num },
+    { key: "spent", title: "Spent", fmt: v => v == null ? "–" : isk(v) },
+    { key: "pv", title: `Value produced`, cls: pm, sep: true, value: r => (r.producedValue || {})[pm], fmt: v => v == null ? "–" : isk(v) },
+    { key: "pr", title: "Profit", cls: pm, signed: true, value: r => (r.profit || {})[pm], fmt: v => v == null ? "–" : isk(v) }]) +
+    `<p class="muted small">Closed months keep the prices of the day they were closed. Open months show the current state.</p></section>`;
   return html;
 }
-function overviewHtml() {
-  const rows = state.overview || [];
-  if (!rows.length) return '<div class="empty">No months yet.</div>';
-  return `<section class="group"><h2>Overview</h2>` + tableHtml("m_over", rows, [
-    { key: "month", title: "Month", left: true, html: r => `${esc(r.month)} ${r.closed ? '<span class="kind">closed</span>' : '<span class="kind">open</span>'}` },
-    { key: "jobsDone", title: "Jobs done", fmt: num }, { key: "jobsCarried", title: "Carried", fmt: num },
-    { key: "spent", title: "Spent", fmt: isk },
-    ...triple("Value produced", "pv", { pick: (r, m) => (r.producedValue || {})[m] }),
-    ...triple("Profit", "pr", { signed: true, pick: (r, m) => (r.profit || {})[m] })]) +
-    `<p class="muted small">Values are stored when a month is closed (current Jita prices at that moment). Spent = tracked purchases × price paid.</p></section>`;
+
+// ----- create plan dialog -----
+function createDialogHtml() {
+  const today = new Date(), id = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  return `<dialog id="createDlg"><form method="dialog" class="dlg" onsubmit="return false">
+    <h2>Create a new plan</h2>
+    <p class="muted small">Pick what you want to make. Afterwards the planner shows what to buy, which reactions to start and when.</p>
+    <div class="dlg-grid">
+      <label class="field">Start month<input id="cpMonth" type="month" value="${id}"></label>
+      <label class="field">Runs per job<input id="cpRuns" type="number" min="1" value="${state.campaign.runsPerJob || 544}"></label>
+      <label class="field">Reaction slots (0 = no limit)<input id="cpSlots" type="number" min="0" value="${state.campaign.slots ?? 30}"></label>
+    </div>
+    <h3>What do you want to make?</h3>
+    <div class="add-row"><input id="cpName" list="planItems2" placeholder="Reaction or component"><input id="cpQty" type="number" min="1" placeholder="Jobs / units"><button type="button" class="btn" id="cpAdd">Add</button></div>
+    <datalist id="planItems2">${planItems().map(([n, , k]) => `<option value="${esc(n)}">${k} · ${RUN_MONTHS[k]} month run</option>`).join("")}</datalist>
+    <ul class="cp-list" id="cpList"><li class="muted">Nothing added yet.</li></ul>
+    <label class="field">Your stock (optional, paste from EVE)<textarea id="cpStock" class="stock" style="height:90px"></textarea></label>
+    <div class="cp-preview" id="cpPreview"><span class="muted small">Add something to see costs and profit live.</span></div>
+    <label class="field inline"><input type="checkbox" id="cpKeep" checked> keep the current plan's history (only add a new run)</label>
+    <div class="planner-actions"><button type="button" class="btn primary" id="cpCreate">Create plan</button><button type="button" class="btn ghost" id="cpCancel">Cancel</button></div>
+  </form></dialog>`;
 }
+function priceAge(st) {
+  if (!st || st.age == null) return "";
+  const min = Math.round(st.age / 60);
+  return `Jita prices ${min < 1 ? "just updated" : min + " min old"} · refresh every ${Math.round(st.refreshSeconds / 60)} min` + (st.error ? " · ESI unreachable, using last prices" : "");
+}
+function previewHtml(v, prices) {
+  const pm = PM();
+  const row = (label, obj, signed) => `<tr><td class="left">${label}</td>${MODES.map(m => `<td class="${m === pm ? "hl" : ""} ${signed ? sign(obj[m]) : ""}" title="${full(obj[m])}">${isk(obj[m])}</td>`).join("")}</tr>`;
+  return `<div class="money small-money">
+      <div class="m-tile"><span>Material costs</span>${money(v.cost[pm])}<small>${v.shoppingItems} items to buy</small></div>
+      <div class="m-tile"><span>Value of the products</span>${money(v.value[pm])}<small>${v.products.length} products</small></div>
+      <div class="m-tile big"><span>Profit</span>${money(v.profit[pm], true)}<small>${v.margin[pm] != null ? pct(v.margin[pm]) + " on costs" : ""} · ${pmText()}</small></div>
+      <div class="m-tile"><span>Run</span><b>${v.months} month${v.months > 1 ? "s" : ""}</b><small>${v.jobs} reaction jobs</small></div>
+    </div>
+    <table class="mini"><thead><tr><th class="left"></th>${MODES.map(m => `<th class="${m}">${MODE_TEXT[m]}</th>`).join("")}</tr></thead><tbody>
+      ${row("Costs", v.cost)}${row("Value", v.value)}${row("Profit", v.profit, true)}</tbody></table>
+    <p class="muted small">${priceAge(prices)}. Without job install costs and market fees.
+      ${v.unknown.length ? `<span class="note">Unknown: ${esc(v.unknown.join(", "))}</span>` : ""}
+      ${Object.keys(v.missingPrices).length ? warnIcon(Object.entries(v.missingPrices).map(([n, t]) => `${n}: ${t}`)) : ""}</p>`;
+}
+function bindCreateDialog() {
+  const items = planItems(), valid = new Map(items.map(([n, key, k]) => [n.toLowerCase(), [n, key, k]]));
+  const orders = { jobs: {}, components: {} };
+  const draw = () => {
+    const all = [...Object.entries(orders.jobs).map(x => [...x, "jobs"]), ...Object.entries(orders.components).map(x => [...x, "components"])];
+    $("cpList").innerHTML = all.length ? all.map(([n, q, key]) => `<li>${q} × ${esc(n)} <span class="kind">${key === "jobs" ? "jobs" : "units"}</span> <button type="button" class="x" data-cprm="${key}" data-name="${esc(n)}">×</button></li>`).join("") : '<li class="muted">Nothing added yet.</li>';
+    for (const b of $("cpList").querySelectorAll("[data-cprm]")) b.onclick = () => { delete orders[b.dataset.cprm][b.dataset.name]; draw(); };
+    preview();
+  };
+  let timer = null, seq = 0;
+  const preview = () => {
+    clearTimeout(timer);
+    if (!orderCount(orders)) { $("cpPreview").innerHTML = '<span class="muted small">Add something to see costs and profit live.</span>'; return; }
+    $("cpPreview").classList.add("loading");
+    timer = setTimeout(async () => {
+      const n = ++seq;
+      try {
+        const r = await api("/api/campaign/preview", { settings: formSettings(), jobs: orders.jobs, components: orders.components,
+                                                      stock: $("cpStock").value, runsPerJob: Number($("cpRuns").value) || 544 });
+        if (n === seq && $("cpPreview")) $("cpPreview").innerHTML = previewHtml(r.preview, r.prices);
+      } catch (e) { if ($("cpPreview")) $("cpPreview").innerHTML = `<span class="note">${esc(e.message)}</span>`; }
+      if ($("cpPreview")) $("cpPreview").classList.remove("loading");
+    }, 350);
+  };
+  $("cpStock").oninput = preview; $("cpRuns").oninput = preview;
+  const add = () => {
+    const hit = valid.get($("cpName").value.trim().toLowerCase()), n = parseInt($("cpQty").value, 10);
+    if (!hit) return status("Pick a reaction or component from the list.", "error");
+    if (!(n > 0)) return status("Enter a quantity.", "error");
+    orders[hit[1]][hit[0]] = (orders[hit[1]][hit[0]] || 0) + n;
+    $("cpName").value = ""; $("cpQty").value = ""; $("cpName").focus(); draw();
+  };
+  $("cpCancel").onclick = () => $("createDlg").close();
+  $("cpAdd").onclick = add;
+  draw();
+  $("cpQty").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); add(); } };
+  $("cpName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("cpQty").focus(); } };
+  $("cpCreate").onclick = async () => {
+    if (!orderCount(orders)) return status("Add at least one reaction or component.", "error");
+    const id = $("cpMonth").value || new Date().toISOString().slice(0, 7);
+    const month = { id, closed: false, orders, stock: $("cpStock").value, carry: [], track: {}, bought: {}, checks: {} };
+    const c = state.campaign;
+    c.runsPerJob = Number($("cpRuns").value) || 544; c.slots = Math.max(0, Number($("cpSlots").value) || 0);
+    const keep = $("cpKeep").checked;
+    if (keep) {
+      const i = c.months.findIndex(m => m.id === id);
+      if (i >= 0 && c.months[i].closed) return status(`${id} is already closed – pick a later month.`, "error");
+      if (i >= 0) {
+        const m = c.months[i];
+        if (orderCount(m.orders) && !confirm(`${monthName(id)} already has orders. Add the new ones to them?`)) return;
+        for (const k of ["jobs", "components"]) for (const [n, q] of Object.entries(orders[k])) m.orders[k][n] = (m.orders[k][n] || 0) + q;
+        if (month.stock) m.stock = month.stock;
+        state.monthIndex = i;
+      } else if (c.months.length && id < c.months[c.months.length - 1].id) {
+        return status(`Pick ${c.months[c.months.length - 1].id} or later – earlier months are already in the plan.`, "error");
+      } else if (c.months.length && id !== nextId(c.months[c.months.length - 1].id) && !c.months[c.months.length - 1].closed) {
+        return status(`Close ${c.months[c.months.length - 1].id} first, or start the run in an open month.`, "error");
+      } else { c.months.push(month); state.monthIndex = c.months.length - 1; }
+    } else {
+      if (c.months.some(m => m.closed || Object.keys(m.track || {}).length) &&
+          !confirm("Replace the whole current plan including its history? Tip: use Options → Export plan first to keep a copy.")) return;
+      state.campaign = { runsPerJob: c.runsPerJob, slots: c.slots, months: [month] };
+      state.monthIndex = 0;
+    }
+    $("createDlg").close();
+    state.showOverview = false; state.steps[id] = month.stock ? "buy" : "plan";
+    await calcMonth(undefined, {}, false);
+    status(`Plan for ${monthName(id)} created and saved.`);
+  };
+}
+
 function readMonth() {
   if (state.showOverview || !state.campaign) return;
   const c = state.campaign, month = curMonth();
@@ -709,12 +1097,14 @@ function readMonth() {
   if ($("slots")) c.slots = Math.max(0, Number($("slots").value) || 0);
   if (month.closed) return;
   if ($("stock")) month.stock = $("stock").value;
-  const orders = { jobs: {}, components: {} };
-  for (const el of document.querySelectorAll("input[data-order]")) {
-    const n = parseInt(el.value, 10);
-    if (n > 0) orders[el.dataset.order][el.dataset.name] = n;
+  if (document.querySelector(".orders")) {
+    const orders = { jobs: {}, components: {} };
+    for (const el of document.querySelectorAll("input[data-order]")) {
+      const n = parseInt(el.value, 10);
+      if (n > 0) orders[el.dataset.order][el.dataset.name] = n;
+    }
+    month.orders = orders;
   }
-  if (document.querySelector(".orders")) month.orders = orders;
   for (const el of document.querySelectorAll("input[data-track]")) {
     const t = month.track[el.dataset.track] = month.track[el.dataset.track] || {};
     const max = el.max === "" ? Infinity : Number(el.max);
@@ -736,9 +1126,17 @@ async function calcMonth(path = "/api/campaign/plan", extra = {}, read = true) {
   try {
     const data = await api(path, { settings: formSettings(), campaign: state.campaign, index: state.monthIndex, ...extra });
     state.campaign = data.campaign; state.monthIndex = data.index; state.monthPlan = data.plan; state.overview = data.overview;
-    status(`${data.plan.month} · ${new Date().toLocaleTimeString()} · saved` + (data.notes || []).map(n => " · " + n).join(""));
+    status(`${monthName(data.plan.month)} · saved ${new Date().toLocaleTimeString()}` + (data.notes || []).map(n => " · " + n).join("")
+           + (data.prices ? " · " + priceAge(data.prices) : ""));
   } catch (e) { status(e.message, "error"); }
   render();
+}
+function setTrack(key, field, value) {
+  const month = curMonth();
+  const t = month.track[key] = month.track[key] || {};
+  t[field] = value;
+  if (field === "done" && (t.started || 0) < value) t.started = value;   // delivered implies started
+  if (field === "started" && (t.done || 0) > value) t.done = value;
 }
 let trackTimer = null;
 function bindPlanner(items) {
@@ -748,7 +1146,22 @@ function bindPlanner(items) {
     if (b.dataset.month === "overview") { state.showOverview = true; return calcMonth(undefined, {}, false); }
     state.showOverview = false; state.monthIndex = Number(b.dataset.month); state.monthPlan = null; calcMonth(undefined, {}, false);
   };
-  for (const id of ["runsPerJob", "slots"]) if ($(id)) $(id).onchange = () => calcMonth();
+  for (const a of document.querySelectorAll("[data-goto-month]")) a.onclick = e => {
+    e.preventDefault();
+    const i = Number(a.dataset.gotoMonth); if (i < 0) return;
+    state.showOverview = false; state.monthIndex = i; state.monthPlan = null; calcMonth(undefined, {}, false);
+  };
+  $("priceMode").onclick = e => {
+    const b = e.target.closest("button[data-pm]"); if (!b) return;
+    readMonth(); state.priceMode = b.dataset.pm;
+    try { localStorage.setItem("planPrice", state.priceMode); } catch {}
+    render();
+  };
+  $("createPlan").onclick = () => {
+    if (!$("createDlg")) { $("view").insertAdjacentHTML("beforeend", createDialogHtml()); }
+    readMonth(); bindCreateDialog(); $("createDlg").showModal(); $("cpName").focus();
+  };
+  for (const id of ["runsPerJob", "slots"]) if ($(id)) $(id).onchange = () => calcMonth(undefined, {}, !state.showOverview);
   $("exportPlan").onclick = () => {
     readMonth();
     const a = document.createElement("a");
@@ -773,6 +1186,9 @@ function bindPlanner(items) {
     } catch (e) { status(`Import failed: ${e.message}`, "error"); }
   };
   if (state.showOverview) return;
+  for (const b of document.querySelectorAll(".stepper [data-step], [data-goto]")) b.onclick = () => {
+    readMonth(); state.steps[curMonth().id] = b.dataset.step || b.dataset.goto; render(); window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   if ($("addBtn")) {
     const valid = new Map(items.map(([n, key, k]) => [n.toLowerCase(), [n, key, k]]));
     const add = () => {
@@ -796,16 +1212,20 @@ function bindPlanner(items) {
   for (const b of document.querySelectorAll("[data-remove]")) b.onclick = () => {
     readMonth(); delete curMonth().orders[b.dataset.remove][b.dataset.name]; calcMonth(undefined, {}, false);
   };
-  for (const el of document.querySelectorAll("input[data-order], input[data-track], input[data-buy], input[data-check]")) {
-    el.onchange = () => { clearTimeout(trackTimer); trackTimer = setTimeout(() => calcMonth(), 300); };
-  }
-  if ($("runPlan")) $("runPlan").onclick = () => calcMonth();
+  const later = () => { clearTimeout(trackTimer); trackTimer = setTimeout(() => calcMonth(), 300); };
+  for (const el of document.querySelectorAll("input[data-order], input[data-track], input[data-buy], input[data-check], #stock")) el.onchange = later;
+  for (const el of document.querySelectorAll("input[data-tick]")) el.onchange = () => {
+    readMonth(); setTrack(el.dataset.key, el.dataset.tick, el.checked ? Number(el.dataset.max) : 0); calcMonth(undefined, {}, false);
+  };
+  for (const b of document.querySelectorAll("[data-all]")) b.onclick = () => {
+    readMonth();
+    for (const l of state.monthPlan[`stage${b.dataset.stage}`]) if (l.scheduled) setTrack(l.key, b.dataset.all, l.scheduled);
+    calcMonth(undefined, {}, false);
+  };
   if ($("closeMonth")) $("closeMonth").onclick = () => {
-    const m = curMonth(), p = state.monthPlan;
-    const open = p ? [...p.stage1, ...p.stage2].reduce((n, l) => n + l.count - l.done, 0) : 0;
-    const units = p ? p.stage3.reduce((n, x) => n + x.units - x.done, 0) : 0;
-    if (!confirm(`Close ${m.id}?\n\n${open} unfinished, blocked or postponed jobs` + (units ? ` and ${units} unbuilt components` : "") + ` move to ${nextId(m.id)}.` +
-                 ($("repeat").checked ? `\nThe orders of ${m.id} start again as a new run in ${nextId(m.id)}.` : `\n${nextId(m.id)} starts without a new run.`))) return;
+    const m = curMonth();
+    if (!confirm(`Close ${monthName(m.id)}?`)) return;
+    state.steps[nextId(m.id)] = "plan";
     calcMonth("/api/campaign/close", { repeat: $("repeat").checked });
   };
   if ($("reopen")) $("reopen").onclick = () => calcMonth("/api/campaign/reopen");
@@ -813,8 +1233,14 @@ function bindPlanner(items) {
   if (p && $("copyBuy")) {
     $("copyBuy").onclick = async () => {
       const text = p.shopping.filter(x => x.remaining > 0).map(x => `${x.name}\t${x.remaining}`).join("\n");
-      try { await navigator.clipboard.writeText(text); status("Remaining shopping list copied – paste it into EVE's Multibuy window."); }
+      try { await navigator.clipboard.writeText(text); status("Shopping list copied – paste it into EVE's Multibuy window."); }
       catch { prompt("Copy the shopping list:", text); }
+    };
+    if ($("allBought")) $("allBought").onclick = () => {
+      readMonth();
+      const month = curMonth();
+      for (const x of p.shopping) if (x.remaining > 0) month.bought[x.name] = { qty: x.toBuy, price: x.price[PM()] || 0 };
+      calcMonth(undefined, {}, false);
     };
     $("csvBuy").onclick = () => download(`shopping-list-${p.month}`, [["Item", "Needed", "Stock", "To buy", "Bought", "Paid per unit", "Remaining", ...MODES.map(m => `Cost ${m}`)],
       ...p.shopping.map(x => [x.name, x.need, x.stock, x.toBuy, x.bought, x.paid, x.remaining, ...MODES.map(m => x.cost[m])])]);

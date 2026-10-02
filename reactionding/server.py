@@ -6,7 +6,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
-from . import esi, production, sde, storage as storage_mod, tracker
+from . import esi, market, production, sde, storage as storage_mod, tracker
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS
 from .client import ApiError, Client
@@ -150,7 +150,7 @@ def make_handler(store):
                     rows = calculate(values, groups, source=source, client=client)
                     return self._send(200, {"settings": values,
                                             "warnings": warnings(values, rows),
-                                            "notes": notes,
+                                            "notes": notes, "prices": market.status(),
                                             "rows": [r.to_dict(full=True) for r in rows]})
                 if self.path == "/api/chain":
                     values, notes = checked_settings(body)
@@ -180,8 +180,16 @@ def make_handler(store):
                         plan = tracker.plan_month(rec, comps, values, campaign, index)
                     save_campaign(campaign)
                     return self._send(200, {"notes": notes, "campaign": campaign, "index": index, "plan": plan,
-                                            "overview": tracker.overview(campaign),
+                                            "prices": market.status(),
+                                            "overview": tracker.overview(campaign, {index: plan}),
                                             "stageNames": tracker.STAGE_NAMES})
+                if self.path == "/api/campaign/preview":
+                    values, notes = checked_settings(body)
+                    rec, comps = recipes()
+                    state = {"runsPerJob": body.get("runsPerJob") or 544, "jobs": body.get("jobs") or {},
+                             "components": body.get("components") or {}, "stock": body.get("stock") or ""}
+                    return self._send(200, {"notes": notes, "preview": production.preview(rec, values, state, comps),
+                                            "prices": market.status()})
                 if self.path == "/api/plan":
                     values, notes = checked_settings(body)
                     state = body.get("plan") or {}
@@ -226,6 +234,7 @@ def serve(host="127.0.0.1", port=8765, store=None, open_browser=False):
             webbrowser.open(url)
         return
     print(f"EVE Reaction Ding running at {url}  (close this window or press Ctrl+C to stop)")
+    market.start_refresher()
     if open_browser:
         threading.Timer(0.8, webbrowser.open, (url,)).start()
     try:

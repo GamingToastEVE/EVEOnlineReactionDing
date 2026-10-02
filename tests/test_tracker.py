@@ -173,5 +173,18 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(row["profit"]["buy"], 108800 * 30 - 550000)
 
 
+class PreviewTest(unittest.TestCase):
+    def test_run_preview(self):
+        from reactionding import production
+        v = production.preview(RECIPES, S, {"runsPerJob": 544, "jobs": {}, "components": {"Part": 1000}},
+                               components=COMPONENTS, prices=PRICES)
+        self.assertEqual(v["months"], 3)
+        names = {p["name"] for p in v["products"]}
+        self.assertIn("Part", names)
+        for m in ("buy", "split", "sell"):
+            self.assertAlmostEqual(v["profit"][m], v["value"][m] - v["cost"][m])
+        self.assertGreater(v["cost"]["buy"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

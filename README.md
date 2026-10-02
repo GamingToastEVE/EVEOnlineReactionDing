@@ -7,7 +7,7 @@ Woher die Daten kommen:
 
 | Daten | Quelle |
 |---|---|
-| **Preise** | live aus der offiziellen EVE-API (ESI), Jita 4-4: **Buy** = höchste Buy-Order, **Sell** = niedrigste Sell-Order, **Split** = Mitte von Buy und Sell. Fehlt eine Seite, wird die andere genommen und das Item markiert ⚠. |
+| **Preise** | live aus der offiziellen EVE-API (ESI), Jita 4-4: **Buy** = höchste Buy-Order, **Sell** = niedrigste Sell-Order, **Split** = Mitte von Buy und Sell. Fehlt eine Seite, wird die andere genommen und das Item markiert ⚠. Die Preise werden 15 Minuten gecacht (auch auf der Festplatte) und im Hintergrund alle 15 Minuten erneuert. Ist ESI nicht erreichbar, gelten die letzten bekannten Preise. |
 | **Rezepte** | CCPs offizieller Static Data Export (developers.eveonline.com). Gelesen wird nur der Blueprint-Teil (~190 KB). Eine Kopie liegt bei, falls man offline ist. |
 | **Mengen, Runs, Job-Kosten** der Profit-Tabelle | [EVE Online Reactions Calculator](https://reactions.coalition.space) (Oxed G), primär über dessen [API](https://reactions.coalition.space/api) |
 | **System Cost Index**, Systemnamen | ESI |
@@ -71,23 +71,29 @@ als Spalten nebeneinander**. Die Einstellungen sind eingeklappt, oben steht eine
    | Complex Reaction | Simple Reactions dafür | Complex Reaction | – |
    | Komponente (T2 / Capital T2) | Simple Reactions | Complex Reactions | Komponente bauen |
 
+   - **＋ Create plan:** Assistent für einen neuen Plan. Startmonat, Runs pro Job und Slots wählen,
+     Reactions/Komponenten hinzufügen, optional das Lager einfügen. Dabei zeigt eine **Live-Vorschau**
+     Materialkosten, Wert der Produkte, Profit und Marge (Buy/Split/Sell), wie viele Monate der
+     Durchlauf dauert und wie viele Jobs er braucht (ohne Job-Installationskosten und Marktgebühren).
+     Der neue Durchlauf wird an den bestehenden Plan angehängt oder ersetzt ihn.
+   - **Jeder Monat in 4 Schritten:** ① *Orders & stock* (Aufträge + Lager aus EVE einfügen),
+     ② *Buy materials* (Einkaufsliste, „Copy for EVE Multibuy“, „Mark all as bought“),
+     ③ *Reaction checklist* (jede Reaction mit Häkchen *started* / *done*, Fortschrittsbalken pro Stufe,
+     „All started“ / „All done“), ④ *Close month*. Oben stehen Kosten → Wert = erwarteter Profit.
+   - **Preise:** Ein Schalter Buy / Split / Sell gilt für den ganzen Planer.
    - **Lager:** wird zu jedem Monatsbeginn aus EVE eingefügt (Inventar, Strg+A, Strg+C).
    - **Stufe 2 und 3 laufen nur mit dem, was wirklich im Lager ist.** Sind die Simple Reactions
      nicht fertig oder nicht im eingefügten Lager, ist der Complex-Job *blockiert* und wandert in
      den nächsten Monat (er wird nicht auf die Einkaufsliste gesetzt). Ebenso werden nur so viele
      Komponenten gebaut, wie Complex-Produkte da sind.
    - **Reaction-Slots:** zuerst laufende Jobs, dann Stufe 2, dann übertragene Jobs, dann Stufe 1.
-     Was nicht passt, steht unter „No slot“ und wandert weiter.
-   - **Tracking:** pro Job „Started“ und „Done“, pro Komponente „Built“, pro Einkauf gekaufte Menge
-     und gezahlter Preis. Die Einkaufsliste zeigt den Rest mit Kosten Buy/Split/Sell und Total.
-     „Copy remaining for EVE Multibuy“ kopiert, was noch fehlt.
-   - **Checkliste** pro Monat (Lager einfügen, einkaufen, Jobs installieren, Komponenten bauen,
-     Jobs abliefern, Monat abschließen). Vieles hakt sich durch das Tracking selbst ab.
+     Was keinen Slot bekommt, wandert weiter.
    - **Monat abschließen:** Unfertige, blockierte und verschobene Jobs sowie ungebaute Komponenten
      wandern in den nächsten Monat. Auf Wunsch starten die Aufträge dort als neuer Durchlauf.
      „Undo close“ macht das rückgängig, solange der neue Monat unbenutzt ist.
-   - **Overview:** pro Monat erledigte Jobs, Übertrag, Ausgaben, produzierter Wert und Gewinn
-     (Buy/Split/Sell).
+   - **📊 Overview:** Ausgaben, produzierter Wert und Gewinn gesamt, erwarteter Gewinn des offenen
+     Monats, ein Balkendiagramm Kosten/Wert pro Monat, eine Zeitleiste, welcher Durchlauf in welchem
+     Monat in welcher Stufe ist, und die Monatstabelle.
 
    Alles wird automatisch gespeichert (siehe [Speicherort](#speicherort-mariadb-oder-ordner)).
 
