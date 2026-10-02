@@ -1,9 +1,16 @@
 # EVE Online Reaction Ding
 
-Profit-Rechner für alle **Reactions** in EVE Online – als Kommandozeilen-Tool und als
-Web-Oberfläche im Browser. Die Zahlen kommen vom
-[EVE Online Reactions Calculator](https://reactions.coalition.space) (Oxed G), primär über
-dessen [API](https://reactions.coalition.space/api).
+Profit-Rechner, Kostenkette und Produktionsplaner für alle **Reactions** in EVE Online, als
+Kommandozeilen-Tool und als Web-Oberfläche im Browser (bzw. Windows-.exe).
+
+Woher die Daten kommen:
+
+| Daten | Quelle |
+|---|---|
+| **Preise** | live aus der offiziellen EVE-API (ESI), Jita 4-4: **Buy** = höchste Buy-Order, **Sell** = niedrigste Sell-Order, **Split** = Mitte von Buy und Sell. Fehlt eine Seite, wird die andere genommen und das Item markiert ⚠. |
+| **Rezepte** | CCPs offizieller Static Data Export (developers.eveonline.com). Gelesen wird nur der Blueprint-Teil (~190 KB). Eine Kopie liegt bei, falls man offline ist. |
+| **Mengen, Runs, Job-Kosten** der Profit-Tabelle | [EVE Online Reactions Calculator](https://reactions.coalition.space) (Oxed G), primär über dessen [API](https://reactions.coalition.space/api) |
+| **System Cost Index**, Systemnamen | ESI |
 
 Abgedeckt sind alle 177 Reactions in 15 Gruppen:
 
@@ -38,16 +45,32 @@ Windows-Server und hängt sie als Artefakt an.
 python -m reactionding            # oder: python -m reactionding serve --open
 ```
 
-Öffnet <http://127.0.0.1:8765/> im Browser. Dort gibt es:
+Öffnet <http://127.0.0.1:8765/> im Browser. Oben stehen die Einstellungen (Broker Fee, Sales Tax,
+Reactions-Skill, Facility, Rig, Space, System, IndyTax, SCC, Build Time, Cycles, Cost Index,
+Prismaticite, **Component ME %**). Darunter gibt es drei Bereiche, überall mit **Buy, Split und Sell
+als Spalten nebeneinander**:
 
-- alle Settings des Calculators (In/Out Method + Market, Broker Fee, Sales Tax, Reactions-Skill,
-  Facility, Rig, Space, System, IndyTax, SCC, Build Time, Cycles, Cost Index, Prismaticite)
-- Tabellen pro Gruppe (Inputs · Tax · Output · Profit · % prof. · Profit/h), grün/rot nach Profit,
-  sortierbar per Klick auf die Spaltenköpfe
-- Klick auf eine Reaction → Detailansicht (Input-Mengen und Preise, Steueraufschlüsselung,
-  Runs, übrig gebliebene Zwischenprodukte bei Chain Reactions)
-- **Ranking**-Tab: alle Reactions in einer Liste nach Profit
-- **Save as default** speichert die Settings in `settings.json`, **Export CSV** lädt die Tabelle herunter
+1. **Reactions:** alle 177 Reactions mit **Cost Buy | Cost Split | Cost Sell | Profit Buy |
+   Profit Split | Profit Sell**, sortierbar, mit Ranking-Tab. Klick auf eine Reaction zeigt die
+   Stückpreise und die Aufschlüsselung (Material, Marktgebühren, Job-Kosten, Output).
+   - Cost = Input-Material + Marktgebühren Inputs + Job-Kosten (System Cost Index, Facility, SCC)
+   - Profit = Output-Wert − Marktgebühren Output − Cost
+   - Gebühren wie im Calculator: Kauf per Buy-Order kostet Broker Fee, Verkauf per Sell-Order Broker
+     Fee + Sales Tax, Verkauf an Buy-Orders nur Sales Tax. Split = Mitte von Buy und Sell.
+2. **Cost chain (Nachbau Blatt 7):** Herstellkosten pro Stück, wenn man alles selbst reagiert (Moon
+   Goo → Simple → Complex → T2- und Capital-T2-Komponenten), gegen den Jita-Preis. Spalten: Jita
+   Buy/Split/Sell, Cost Buy/Split/Sell, Profit Buy/Split/Sell, Marge, Profit pro Run. Wie Blatt 7
+   ohne Job-Kosten und Gebühren, aber mit Rig-Bonus (Reaction ME) und Component ME.
+3. **Planner (Nachbau Blatt 8.1, mit den korrigierten Formeln):** Jobs für Complex/Hybrid Reactions
+   und Stückzahlen für Komponenten eintragen, Lager aus EVE einfügen (Inventar markieren, Strg+C).
+   Ergebnis:
+   - automatische Complex-Jobs für die Komponenten
+   - benötigte Simple-Reaction-Jobs (abzüglich Lager)
+   - **Einkaufsliste** für Moon Goo und Fuel Blocks mit Kosten Buy/Split/Sell
+   - Button **„Copy for EVE Multibuy“**
+
+   Material wird wie im Spiel pro Job berechnet: `max(Runs, aufrunden(Runs × Menge × (1 − Bonus)))`.
+   **Save plan** speichert den Plan in `planner.json`.
 
 ## Kommandozeile
 
@@ -55,36 +78,21 @@ python -m reactionding            # oder: python -m reactionding serve --open
 python -m reactionding calc                          # alle Reactions, Tabellen pro Gruppe
 python -m reactionding calc composite                # nur ein Calculator …
 python -m reactionding calc simple strong_chain      # … oder einzelne Gruppen
-python -m reactionding calc --sort profit --top 20   # Ranking über alles
+python -m reactionding calc --sort profit_split --top 20   # Ranking (auch profit_buy, cost_sell, …)
 python -m reactionding calc --format csv > reactions.csv   # auch: --format json [--full]
 python -m reactionding show "Methanofullerene"       # Detailansicht einer Reaction
 python -m reactionding show "Strong Frentix" --group strong_chain
 python -m reactionding list                          # alle Reactions mit Type ID
-python -m reactionding settings --set inMarket=Amarr skill=4 rigs=1   # Defaults speichern
+python -m reactionding chain complex components       # Kostenkette (Blatt 7)
+python -m reactionding plan --job "Fullerides=2" --component "Antimatter Reactor Unit=1000" --stock lager.txt
+python -m reactionding settings --set skill=4 rigs=1  # Defaults speichern
 python -m reactionding verify                        # alle Reactions auf Korrektheit prüfen
 ```
 
 Jede Einstellung lässt sich auch einmalig per Option überschreiben, z. B.
-`--space wormhole --costIndex 4.5 --input sell`.
+`--space wormhole --costIndex 4.5`. `python -m reactionding calc --help` zeigt alle.
 
-### Jita Buy / Split / Sell
-
-Für Kosten (In Method) und Erlös (Out Method) gibt es jeweils **buy**, **split** und **sell**:
-
-| | Inputs (Kosten) | Output (Erlös) |
-|---|---|---|
-| **buy** | eigene Buy-Order zum höchsten Buy-Preis, + Broker Fee | Verkauf an die höchste Buy-Order, − Sales Tax |
-| **split** | Mitte von Buy und Sell (Preis und Gebühren) | Mitte von Buy und Sell (Preis und Gebühren) |
-| **sell** | Sofortkauf zum niedrigsten Sell-Preis | eigene Sell-Order zum niedrigsten Sell-Preis, − Broker Fee − Sales Tax |
-
-Der Calculator selbst kennt nur buy und sell. Das Programm fragt jede Reaction deshalb zweimal ab
-(Inputs Buy/Output Sell und Inputs Sell/Output Buy) und setzt daraus alle 9 Kombinationen zusammen.
-Die Zusammensetzung wurde für alle 15 Gruppen gegen die direkten Calculator-Ergebnisse geprüft
-(identisch). In der Oberfläche lässt sich deshalb ohne Neuladen umschalten, und die Detailansicht
-zeigt Stückpreise sowie eine 3×3-Profit-Matrix. Auf der Kommandozeile zeigt `show` beides. `python -m reactionding calc --help` zeigt alle.
-
-Gültige Märkte sind **Jita, Amarr, Perimeter** (andere Namen bewertet die API stillschweigend mit
-0 ISK, daher lehnt das Programm sie ab). Den System-Namen prüft das Programm über die offizielle
+Den System-Namen prüft das Programm über die offizielle
 EVE-API (ESI): Die Schreibweise wird automatisch korrigiert (`ignoitton` → `Ignoitton`, die
 Calculator-API unterscheidet Groß-/Kleinschreibung), unbekannte Systeme werden abgelehnt, und der
 aktuelle Reaction Cost Index des Systems wird angezeigt.
@@ -96,8 +104,8 @@ aktuelle Reaction Cost Index des Systems wird angezeigt.
 1. **catalog** – Ist die Reaction-Liste des Programms noch identisch mit dem Calculator?
 2. **api** – Jede Reaction wird über die API abgefragt und mit der Calculator-Seite verglichen
    (gleiche Engine, gleiche Settings).
-3. **sde** – Rezepte (Inputs, Output-Menge, Reaction-Zeit) werden mit CCPs Static Data Export
-   (Dump von fuzzwork.co.uk) abgeglichen.
+3. **sde** – Rezepte (Inputs, Output-Menge, Reaction-Zeit) werden mit CCPs offiziellem Static Data
+   Export abgeglichen.
 
 Ergebnis des Durchlaufs (Stand Oktober 2026):
 
@@ -116,7 +124,8 @@ Ergebnis des Durchlaufs (Stand Oktober 2026):
   | Unrefined Mineral Reactions (no reprocessing) | rechnet mit 3600 s statt 360 s Reaction-Zeit (SDE) → 10× zu wenige Runs |
   | Strong Booster Chain Reactions | löst die Kette nicht auf, liefert nur die Inputs der Strong Booster Reaction |
 
-- Rezeptfehler im Calculator selbst (API **und** Seite, laut SDE):
+- Rezeptfehler im Calculator selbst (API **und** Seite, laut CCPs offiziellen Daten; in der
+  Profit-Tabelle mit ⚠ markiert, Kostenkette und Planner nutzen die richtigen CCP-Rezepte):
   - *Unrefined Tritanium*: 1000 statt 100 Atmospheric Gases pro Run
   - *Unrefined Zydrine*: 600 statt 1000 Atmospheric Gases pro Run
   - *Pure Strong Frentix Booster*: 100 statt 20 Hydrochloric Acid pro Run

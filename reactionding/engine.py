@@ -16,110 +16,74 @@ def outputs(result):
     return out if isinstance(out, list) else [out]
 
 
-def _side(result, key):
-    """(value, market fees) of the input or output side of one calculator result."""
-    market = (result.get("taxes") or {}).get("market") or {}
-    fees = (market.get("total") or {}).get("inputs" if key == "input" else "output") or 0.0
-    return result.get(f"{key}_total") or 0.0, fees
-
-
 @dataclass
 class Row:
-    """One reaction. The calculator is asked twice: once with buy prices for the inputs and
-    sell prices for the output (``a``), once the other way round (``b``). Every combination of
-    Jita Buy / Split / Sell is composed from these two; Split is the middle of Buy and Sell
-    (prices and market fees)."""
+    """One reaction. Quantities and job install cost come from the reactions calculator,
+    prices live from ESI (Jita 4-4): Buy = highest buy order, Sell = lowest sell order,
+    Split = middle of both.
+
+    Cost = input materials + market fees on the inputs + job install cost (system cost
+    index, facility tax, SCC). Profit = output value - market fees on the output - cost.
+    Market fees follow the calculator: buying inputs with buy orders costs broker fee,
+    selling the output with sell orders costs broker fee + sales tax, selling into buy
+    orders costs sales tax. Split is the middle of the Buy and Sell results."""
 
     group: object
     item_id: int
     name: str
     source: str
-    a: dict = field(default=None, repr=False)  # input buy, output sell
-    b: dict = field(default=None, repr=False)  # input sell, output buy
+    result: dict = field(default=None, repr=False)
     error: str = ""
-    modes: tuple = ("buy", "sell")  # (input method, output method) used for the properties
-
-    @property
-    def result(self):
-        return self.a
+    prices: dict = field(default=None, repr=False)  # item name -> {"buy", "split", "sell"}
+    brokers: float = 0.0  # percent
+    sales: float = 0.0  # percent
+    notes: list = field(default_factory=list)
 
     @property
     def ok(self):
-        return self.a is not None and self.b is not None
+        return self.result is not None and self.prices is not None
 
-    def view(self, input_mode=None, output_mode=None):
-        """Totals for one combination of input and output price method."""
+    @property
+    def missing_prices(self):
+        """{item: note} for items without Jita buy and/or sell orders."""
+        names = [x["name"] for x in self.result.get("input", [])] + [x["name"] for x in outputs(self.result)]
+        return {n: (self.prices.get(n) or {}).get("note") or "no price" for n in sorted(set(names))
+                if not self.prices.get(n) or self.prices[n].get("note")}
+
+    def _value(self, items, mode):
+        return sum(x.get("quantity", 0) * ((self.prices.get(x["name"]) or {}).get(mode) or 0.0)
+                   for x in items)
+
+    def view(self, mode):
         if not self.ok:
             return None
-        input_mode = input_mode or self.modes[0]
-        output_mode = output_mode or self.modes[1]
-        sides = {
-            "input": {"buy": _side(self.a, "input"), "sell": _side(self.b, "input")},
-            "output": {"sell": _side(self.a, "output"), "buy": _side(self.b, "output")},
-        }
-        for side in sides.values():
-            side["split"] = tuple((x + y) / 2 for x, y in zip(side["buy"], side["sell"]))
-        inputs, input_fees = sides["input"][input_mode]
-        output, output_fees = sides["output"][output_mode]
-        install = ((self.a.get("taxes") or {}).get("total") or {}).get("install") or 0.0
-        taxes = install + input_fees + output_fees
-        profit = output - inputs - taxes
-        minutes = (self.a.get("cycle_data") or {}).get("total_time")
-        return {
-            "inputs": inputs, "inputFees": input_fees, "output": output, "outputFees": output_fees,
-            "install": install, "taxes": taxes, "profit": profit,
-            "profitPercent": profit / output * 100 if output else None,
-            "profitPerHour": profit / (minutes / 60.0) if minutes else None,
-        }
+        if mode == "split":
+            buy, sell = self.view("buy"), self.view("sell")
+            return {k: (buy[k] + sell[k]) / 2 if buy[k] is not None and sell[k] is not None else None
+                    for k in buy}
+        b, s = self.brokers / 100.0, self.sales / 100.0
+        inputs = self._value(self.result.get("input", []), mode)
+        output = self._value(outputs(self.result), mode)
+        input_fees = inputs * b if mode == "buy" else 0.0
+        output_fees = output * (b + s) if mode == "sell" else output * s
+        install = ((self.result.get("taxes") or {}).get("total") or {}).get("install") or 0.0
+        cost = inputs + input_fees + install
+        profit = output - output_fees - cost
+        minutes = (self.result.get("cycle_data") or {}).get("total_time")
+        return {"inputs": inputs, "inputFees": input_fees, "install": install, "cost": cost,
+                "output": output, "outputFees": output_fees, "profit": profit,
+                "profitPercent": profit / output * 100 if output else None,
+                "profitPerHour": profit / (minutes / 60.0) if minutes else None}
 
-    def _view_value(self, key):
-        v = self.view()
-        return v[key] if v else None
-
-    @property
-    def profit(self):
-        return self._view_value("profit")
-
-    @property
-    def profit_percent(self):
-        return self._view_value("profitPercent")
-
-    @property
-    def inputs_total(self):
-        return self._view_value("inputs")
-
-    @property
-    def taxes_total(self):
-        return self._view_value("taxes")
-
-    @property
-    def output_total(self):
-        return self._view_value("output")
-
-    @property
-    def profit_per_hour(self):
-        return self._view_value("profitPerHour")
+    def _views(self):
+        return {m: self.view(m) for m in MODES} if self.ok else {}
 
     @property
     def runs(self):
-        return (self.a or {}).get("runs")
-
-    def unit_prices(self):
-        """{item name: {"buy": p, "split": p, "sell": p}} per unit, inputs and output."""
-        prices = {}
-        for item_a, item_b in zip(self.a.get("input", []), self.b.get("input", [])):
-            qty = item_a.get("quantity") or 0
-            if qty:
-                buy, sell = item_a["price"] / qty, item_b["price"] / qty
-                prices[item_a["name"]] = {"buy": buy, "split": (buy + sell) / 2, "sell": sell}
-        for out_a, out_b in zip(outputs(self.a), outputs(self.b)):
-            qty = out_a.get("quantity") or 0
-            if qty:
-                sell, buy = out_a["price"] / qty, out_b["price"] / qty
-                prices[out_a["name"]] = {"buy": buy, "split": (buy + sell) / 2, "sell": sell}
-        return prices
+        return (self.result or {}).get("runs")
 
     def to_dict(self, full=False):
+        views = self._views()
         data = {
             "calculator": self.group.calculator,
             "group": self.group.key,
@@ -127,21 +91,23 @@ class Row:
             "id": self.item_id,
             "name": self.name,
             "source": self.source,
-            "inputMethod": self.modes[0],
-            "outputMethod": self.modes[1],
-            "inputs": self.inputs_total,
-            "taxes": self.taxes_total,
-            "output": self.output_total,
-            "profit": self.profit,
-            "profitPercent": self.profit_percent,
-            "profitPerHour": self.profit_per_hour,
             "runs": self.runs,
             "error": self.error,
+            "notes": list(self.notes),
         }
+        for m in MODES:
+            v = views.get(m) or {}
+            data[f"cost_{m}"] = v.get("cost")
+            data[f"profit_{m}"] = v.get("profit")
+            data[f"profitPercent_{m}"] = v.get("profitPercent")
+            data[f"profitPerHour_{m}"] = v.get("profitPerHour")
+        if self.ok:
+            data["missingPrices"] = self.missing_prices
         if full and self.ok:
-            data["views"] = {f"{i}|{o}": self.view(i, o) for i in MODES for o in MODES}
-            data["prices"] = self.unit_prices()
-            data["result"] = self.a
+            data["views"] = views
+            data["prices"] = {x["name"]: self.prices.get(x["name"])
+                              for x in self.result.get("input", []) + outputs(self.result)}
+            data["result"] = self.result
         return _finite(data)
 
 
@@ -168,76 +134,114 @@ def _match_web(entries, item_id, name, position):
     return None
 
 
-def calculate(settings, groups=None, source="auto", client=None, workers=4, progress=None):
-    """Return one Row per reaction (see Row for how Buy / Split / Sell are derived).
+def calculate(settings, groups=None, source="auto", client=None, workers=4, progress=None,
+              prices=True):
+    """Return one Row per reaction.
 
     source: ``auto`` (API, page data for groups the API cannot handle),
     ``api`` (API only) or ``web`` (page data only).
+    prices: attach live Jita prices from ESI (needed for cost/profit).
     """
     client = client or Client()
     groups = groups_for(groups) if groups is None or isinstance(groups[0], str) else groups
-    modes = (settings["input"], settings["output"])
-    variants = {"a": dict(settings, input="buy", output="sell"),
-                "b": dict(settings, input="sell", output="buy")}
     rows, api_jobs, web_groups = [], [], []
     for group in groups:
         use = group.source if source == "auto" else source
         if use == "api":
             for item_id, name in group.items:
-                row = Row(group, item_id, name, "api", modes=modes)
+                row = Row(group, item_id, name, "api")
                 rows.append(row)
-                api_jobs += [(row, "a"), (row, "b")]
+                api_jobs.append(row)
         else:
             web_groups.append(group)
 
     web_pages = {}
     for calculator in sorted({g.calculator for g in web_groups}):
-        for key, values in variants.items():
-            try:
-                web_pages[calculator, key] = client.web_results(calculator, values)
-            except ApiError as exc:
-                web_pages[calculator, key] = exc
+        try:
+            web_pages[calculator] = client.web_results(calculator, settings)
+        except ApiError as exc:
+            web_pages[calculator] = exc
     for group in web_groups:
+        page = web_pages[group.calculator]
+        entries = None if isinstance(page, ApiError) else page.get(group.web_key) or []
         for position, (item_id, name) in enumerate(group.items):
-            row = Row(group, item_id, name, "web", modes=modes)
-            for key in variants:
-                page = web_pages[group.calculator, key]
-                if isinstance(page, ApiError):
-                    row.error = str(page)
-                    continue
-                entry = _match_web(page.get(group.web_key) or [], item_id, name, position)
-                if entry is None:
+            row = Row(group, item_id, name, "web")
+            if entries is None:
+                row.error = str(page)
+            else:
+                row.result = _match_web(entries, item_id, name, position)
+                if row.result is None:
                     row.error = "missing in calculator page data"
-                setattr(row, key, entry)
             rows.append(row)
             if progress:
                 progress(row)
 
-    def run(job):
-        row, key = job
+    def run(row):
         try:
-            setattr(row, key, client.api_calculate(row.group, row.item_id, variants[key]))
+            row.result = client.api_calculate(row.group, row.item_id, settings)
         except ApiError as exc:
             row.error = str(exc)
-        return job
+        return row
 
     with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for row, key in pool.map(run, api_jobs):
-            if progress and key == "b":
+        for row in pool.map(run, api_jobs):
+            if progress:
                 progress(row)
 
-    for row in rows:
-        if row.ok and _quantities(row.a) != _quantities(row.b):
-            row.error = "calculator returned different quantities for buy and sell prices"
-            row.b = None
+    if prices:
+        attach_prices(rows, settings)
+        compare_with_ccp(rows)
     order = {g.key: i for i, g in enumerate(groups)}
     rows.sort(key=lambda r: (order[r.group.key], [i for i, _ in r.group.items].index(r.item_id)))
     return rows
 
 
-def _quantities(result):
-    return ([(x.get("name"), x.get("quantity")) for x in result.get("input", [])],
-            [(x.get("name"), x.get("quantity")) for x in outputs(result)], result.get("runs"))
+# groups whose calculator result is the plain recipe (no chain / reprocessing on top)
+PLAIN_GROUPS = {"hybrid", "simple", "complex", "unrefined", "eratic", "synth", "standard", "improved",
+                "strong", "molecular"}
+
+
+def compare_with_ccp(rows):
+    """Note reactions where the calculator uses a different recipe than CCP's official SDE."""
+    from . import sde
+
+    try:
+        official = sde.load()["reactions"]
+    except Exception:  # recipes are an extra check only
+        return
+    for row in rows:
+        if not row.result or row.group.key not in PLAIN_GROUPS or row.name not in official:
+            continue
+        runs = row.result.get("runs") or 0
+        recipe = official[row.name]["in"]
+        got = {x["name"]: x["quantity"] / runs for x in row.result.get("input", []) if runs}
+        for name in sorted(set(recipe) | set(got)):
+            base, per_run = recipe.get(name), got.get(name)
+            if base is None or per_run is None or not base * 0.9 <= per_run <= base + 1e-9:
+                row.notes.append(f"calculator uses {per_run or 0:,.1f} {name}/run, CCP recipe says "
+                                 f"{base or 0:g} - quantities and cost of this row are off")
+
+
+def attach_prices(rows, settings):
+    from . import market
+    from .esi import EsiError
+
+    names = set()
+    for row in rows:
+        if row.result:
+            names.update(x["name"] for x in row.result.get("input", []))
+            names.update(x["name"] for x in outputs(row.result))
+    try:
+        table = market.prices_by_name(sorted(names))
+    except EsiError as exc:
+        for row in rows:
+            if row.result:
+                row.error = f"Jita prices unavailable: {exc}"
+        return
+    for row in rows:
+        if row.result:
+            row.prices = table
+            row.brokers, row.sales = settings["brokers"], settings["sales"]
 
 
 def warnings(settings, rows):
@@ -245,7 +249,7 @@ def warnings(settings, rows):
     out = []
     ok = [r for r in rows if r.ok]
     if settings["space"] != "wormhole" and ok and \
-            all(not ((r.a.get("taxes") or {}).get("system")) for r in ok):
+            all(not ((r.result.get("taxes") or {}).get("system")) for r in ok):
         out.append(f"System cost is 0 for every reaction - is '{settings['system']}' spelled "
                    "exactly like in game (case-sensitive)?")
     return out

@@ -39,7 +39,7 @@ def load_recipes(client=None):
     """Base recipe per reaction name: {"out": per run, "in": {name: per run}, "group": ...}."""
     values = settings_mod.normalize({"rigs": 0, "facility": "medium"})
     recipes, errors = {}, []
-    for row in calculate(values, list(RECIPE_GROUPS), client=client):
+    for row in calculate(values, list(RECIPE_GROUPS), client=client, prices=False):
         if not row.ok:
             errors.append(f"{row.name}: {row.error}")
             continue

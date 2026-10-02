@@ -6,7 +6,9 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
-from . import esi
+from pathlib import Path
+
+from . import esi, production, sde
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS
 from .client import ApiError, Client
@@ -16,6 +18,28 @@ from .engine import _finite, calculate, warnings
 def make_handler(settings_path):
     client = Client()
     lock = threading.Lock()
+    planner_path = Path(settings_path).with_name("planner.json")
+    cache = {}
+
+    def recipes():
+        """Official CCP recipes (loaded once per program start)."""
+        with lock:
+            if "recipes" not in cache:
+                data = sde.load()
+                cache["sde"] = {"build": data.get("build"), "offline": bool(data.get("offline"))}
+                cache["recipes"] = sde.production_recipes(data)
+                cache["components"] = production.load_components(cache["recipes"], data)
+            return cache["recipes"], cache["components"]
+
+    def load_plan():
+        try:
+            return json.loads(planner_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            return {"runsPerJob": 544, "jobs": {}, "components": {}, "stock": ""}
+
+    def checked_settings(body):
+        values = settings_mod.normalize(body.get("settings"))
+        return esi.check_system(values)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
@@ -35,7 +59,7 @@ def make_handler(settings_path):
 
         def _body(self):
             length = int(self.headers.get("Content-Length") or 0)
-            if length > 64 * 1024:
+            if length > 4 * 1024 * 1024:
                 raise ValueError("request too large")
             return json.loads(self.rfile.read(length) or b"{}")
 
@@ -53,6 +77,17 @@ def make_handler(settings_path):
                     "groups": [{"key": g.key, "calculator": g.calculator, "title": g.title,
                                 "source": g.source, "issue": g.issue,
                                 "items": [list(i) for i in g.items]} for g in GROUPS.values()],
+                })
+            if self.path == "/api/planner/meta":
+                rec, comps = recipes()
+                return self._send(200, {
+                    "plan": load_plan(),
+                    "complex": sorted(n for n, r in rec.items() if r["group"] == "complex"),
+                    "hybrid": sorted(n for n, r in rec.items() if r["group"] == "hybrid"),
+                    "simple": sorted(n for n, r in rec.items() if r["group"] == "simple"),
+                    "components": [n for n, c in comps.items() if not c["capital"]],
+                    "capital": [n for n, c in comps.items() if c["capital"]],
+                    "sde": cache.get("sde"),
                 })
             self._send(404, {"error": "not found"})
 
@@ -76,6 +111,20 @@ def make_handler(settings_path):
                                             "warnings": warnings(values, rows),
                                             "notes": notes,
                                             "rows": [r.to_dict(full=True) for r in rows]})
+                if self.path == "/api/chain":
+                    values, notes = checked_settings(body)
+                    rec, comps = recipes()
+                    return self._send(200, {"notes": notes, "sde": cache.get("sde"),
+                                            "chain": production.cost_chain(rec, values, components=comps)})
+                if self.path == "/api/plan":
+                    values, notes = checked_settings(body)
+                    state = body.get("plan") or {}
+                    if body.get("save"):
+                        with lock:
+                            planner_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+                    rec, comps = recipes()
+                    return self._send(200, {"notes": notes, "sde": cache.get("sde"),
+                                            "plan": production.plan(rec, values, state, components=comps)})
             except (settings_mod.SettingsError, ValueError) as exc:
                 return self._send(400, {"error": str(exc)})
             except ApiError as exc:

@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import sys
+from pathlib import Path
 
 from . import esi
 from . import settings as settings_mod
@@ -59,31 +60,37 @@ def progress_printer(total, enabled):
     return tick
 
 
+SORT_KEYS = [f"{k}_{m}" for k in ("profit", "cost", "profitPercent", "profitPerHour") for m in MODES]
+
+
 def print_table(rows, sort=None, limit=None):
     by_group = {}
     for row in rows:
         by_group.setdefault(row.group.key, []).append(row)
     sections = [("Top reactions", rows)] if sort else \
         [(GROUPS[k].title, v) for k, v in by_group.items()]
+    data = {id(r): r.to_dict() for r in rows}
     for title, section in sections:
         if sort:
-            section = sorted(section, key=lambda r: (r.ok, getattr(r, sort) or 0), reverse=True)
+            section = sorted(section, key=lambda r: (r.ok, data[id(r)].get(sort) or 0), reverse=True)
         if limit:
             section = section[:limit]
-        width = max([len(r.name) for r in section] + [8])
-        if sort:
-            width = max([len(f"{r.name} [{r.group.key}]") for r in section] + [8])
-        print(f"\n{title}")
-        header = f"{'Reaction':<{width}} {'Inputs':>16} {'Tax':>14} {'Output':>16} {'Profit':>16} {'% prof.':>10}"
+        label = (lambda r: f"{r.name} [{r.group.key}]") if sort else (lambda r: r.name)
+        width = max([len(label(r)) for r in section] + [8])
+        print(f"\n{title}  (Jita 4-4 live; cost = materials + fees + job cost)")
+        header = (f"{'Reaction':<{width}} " + "".join(f"{'Cost ' + m.capitalize():>16}" for m in MODES)
+                  + "".join(f"{'Profit ' + m.capitalize():>16}" for m in MODES))
         print(header)
         print("-" * len(header))
         for r in section:
-            name = f"{r.name} [{r.group.key}]" if sort else r.name
+            d = data[id(r)]
             if not r.ok:
-                print(f"{name:<{width}} ERROR: {r.error}")
+                print(f"{label(r):<{width}} ERROR: {r.error}")
                 continue
-            print(f"{name:<{width}} {fmt_isk(r.inputs_total):>16} {fmt_isk(r.taxes_total):>14} "
-                  f"{fmt_isk(r.output_total):>16} {fmt_isk(r.profit):>16} {fmt_pct(r.profit_percent):>10}")
+            marks = d.get("notes", []) + [f"{k}: {v}" for k, v in (d.get("missingPrices") or {}).items()]
+            flag = "  ! " + "; ".join(marks) if marks else ""
+            print(f"{label(r):<{width}} " + "".join(f"{fmt_isk(d['cost_' + m]):>16}" for m in MODES)
+                  + "".join(f"{fmt_isk(d['profit_' + m]):>16}" for m in MODES) + flag)
 
 
 def cmd_calc(args):
@@ -102,13 +109,15 @@ def cmd_calc(args):
         print()
     elif args.format == "csv":
         writer = csv.writer(sys.stdout)
-        writer.writerow(["Calculator", "Group", "Reaction", "Type ID", "Source", "Input method",
-                         "Output method", "Inputs", "Tax",
-                         "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"])
+        writer.writerow(["Calculator", "Group", "Reaction", "Type ID", "Source"]
+                        + [f"Cost {m}" for m in MODES] + [f"Profit {m}" for m in MODES]
+                        + [f"% prof. {m}" for m in MODES] + ["Runs", "Notes", "Error"])
         for r in rows:
-            writer.writerow([CALCULATORS[r.group.calculator], r.group.title, r.name, r.item_id,
-                             r.source, r.modes[0], r.modes[1], r.inputs_total, r.taxes_total, r.output_total, r.profit,
-                             r.profit_percent, r.profit_per_hour, r.runs, r.error])
+            d = r.to_dict()
+            writer.writerow([CALCULATORS[r.group.calculator], r.group.title, r.name, r.item_id, r.source]
+                            + [d.get(f"cost_{m}") for m in MODES] + [d.get(f"profit_{m}") for m in MODES]
+                            + [d.get(f"profitPercent_{m}") for m in MODES]
+                            + [r.runs, "; ".join(d.get("notes", [])), r.error])
     else:
         print_settings(settings)
         print_table(rows, sort=args.sort, limit=args.top)
@@ -117,10 +126,9 @@ def cmd_calc(args):
 
 def print_settings(settings):
     s = settings
-    print(f"In: {s['inMarket']} {s['input']}  Out: {s['outMarket']} {s['output']}  "
-          f"B: {s['brokers']:g} | S: {s['sales']:g}  Reactions {s['skill']}  {s['facility']} refinery  "
-          f"rigs T{s['rigs']}  {s['space']}  {s['system']}  IndyTax {s['tax']:g}  SCC {s['scc']:g}  "
-          f"{s['duration']} min  cycles {s['cycles']}  prismaticite {s['prismaticite']:g}"
+    print(f"Prices: Jita 4-4 live (ESI)  B: {s['brokers']:g} | S: {s['sales']:g}  Reactions {s['skill']}  "
+          f"{s['facility']} refinery  rigs T{s['rigs']}  {s['space']}  {s['system']}  IndyTax {s['tax']:g}  "
+          f"SCC {s['scc']:g}  {s['duration']} min  cycles {s['cycles']}  prismaticite {s['prismaticite']:g}"
           + (f"  cost index {s['costIndex']:g}" if s["space"] == "wormhole" else ""))
 
 
@@ -146,37 +154,105 @@ def cmd_show(args):
         if not row.ok:
             print(f"ERROR: {row.error}")
             continue
-        res = row.result
-        prices = row.unit_prices()
-        print(f"{'Input':<34} {'Quantity':>12} {'Jita Buy':>12} {'Split':>12} {'Jita Sell':>12}")
-        for x in res.get("input", []):
-            p = prices.get(x["name"], {})
-            print(f"{x['name']:<34} {x['quantity']:>12,.0f} {fmt_unit(p.get('buy')):>12} "
-                  f"{fmt_unit(p.get('split')):>12} {fmt_unit(p.get('sell')):>12}")
-        for out in outputs(res):
-            p = prices.get(out.get("name"), {})
-            print(f"{'Output: ' + out.get('name', ''):<34} {out.get('quantity', 0):>12,.0f} "
-                  f"{fmt_unit(p.get('buy')):>12} {fmt_unit(p.get('split')):>12} {fmt_unit(p.get('sell')):>12}")
-        print("(prices per unit)")
+        res, prices = row.result, row.prices
+        print(f"{'Item (price per unit, Jita 4-4)':<36} {'Quantity':>12} {'Buy':>12} {'Split':>12} {'Sell':>12}")
+        for label, x in [("", x) for x in res.get("input", [])] + [("Output: ", o) for o in outputs(res)]:
+            p = prices.get(x["name"]) or {}
+            print(f"{label + x['name']:<36} {x['quantity']:>12,.0f} " +
+                  " ".join(f"{fmt_unit(p.get(m)):>12}" for m in MODES))
         for x in res.get("remaining") or []:
-            print(f"  left over: {x['name']} x{x['quantity']:,} ({fmt_isk(x.get('price'))} ISK)")
-        print(f"\nProfit by price method (rows: inputs, columns: output)")
-        print(f"{'':<12}" + "".join(f"{'out ' + m:>18}" for m in MODES))
-        for i in MODES:
-            print(f"{'in ' + i:<12}" + "".join(f"{fmt_isk(row.view(i, o)['profit']):>18}" for o in MODES))
-        v = row.view()
-        print(f"\nSelected: inputs {row.modes[0]}, output {row.modes[1]}")
-        print(f"Taxes: install (system+facility+SCC) {fmt_isk(v['install'])}  "
-              f"market inputs {fmt_isk(v['inputFees'])}  market output {fmt_isk(v['outputFees'])}  "
-              f"= {fmt_isk(v['taxes'])}")
+            print(f"  left over: {x['name']} x{x['quantity']:,}")
+        print(f"\n{'':<26}" + "".join(f"{m.capitalize():>18}" for m in MODES))
+        views = {m: row.view(m) for m in MODES}
+        for key, title in [("inputs", "Input materials"), ("inputFees", "Market fees inputs"),
+                           ("install", "Job cost (system/fac./SCC)"), ("cost", "= Cost"),
+                           ("output", "Output value"), ("outputFees", "Market fees output"),
+                           ("profit", "= Profit"), ("profitPerHour", "Profit per hour")]:
+            print(f"{title:<26}" + "".join(f"{fmt_isk(views[m][key]):>18}" for m in MODES))
+        print(f"{'% profit':<26}" + "".join(f"{fmt_pct(views[m]['profitPercent']):>18}" for m in MODES))
         cyc = res.get("cycle_data", {})
         cycle = f"  cycle time {cyc['cycle_time']:,} s" if cyc.get("cycle_time") else ""
-        print(f"Runs: {row.runs}{cycle}  window {cyc.get('total_time')} min")
-        print(f"Inputs {fmt_isk(row.inputs_total)}  Output {fmt_isk(row.output_total)}  "
-              f"Profit {fmt_isk(row.profit)} ({fmt_pct(row.profit_percent)})  "
-              f"{fmt_isk(row.profit_per_hour)} ISK/h")
+        print(f"\nRuns: {row.runs}{cycle}  window {cyc.get('total_time')} min")
+        for note in row.to_dict().get("notes", []):
+            print(f"Note: {note}")
+        for item, note in row.missing_prices.items():
+            print(f"Price note: {item}: {note}")
         if group.issue:
             print(f"Note: {group.issue}")
+    return 0
+
+
+def cmd_chain(args):
+    from . import production, sde
+
+    settings = resolve_settings(args)
+    recipes = sde.production_recipes()
+    chain = production.cost_chain(recipes, settings)
+    print(f"Cost chain (like sheet 7): material cost per unit when you react everything yourself.\n"
+          f"Prices Jita 4-4 live, reaction ME {chain['reactionMe'] * 100:.2f} %, "
+          f"component ME {chain['componentMe'] * 100:.0f} %. No job cost or market fees.")
+    for key, title in [("simple", "Simple Reactions"), ("complex", "Complex Reactions"),
+                       ("hybrid", "Hybrid Reactions"), ("components", "T2 Components"),
+                       ("capital", "Capital T2 Components")]:
+        if args.only and key not in args.only:
+            continue
+        rows = chain[key]
+        width = max(len(r["name"]) for r in rows)
+        print(f"\n{title}")
+        header = (f"{'Item':<{width}}" + "".join(f"{'Jita ' + m.capitalize():>13}" for m in MODES)
+                  + "".join(f"{'Cost ' + m.capitalize():>13}" for m in MODES)
+                  + "".join(f"{'Profit ' + m.capitalize():>13}" for m in MODES))
+        print(header)
+        print("-" * len(header))
+        for r in rows:
+            flag = "  ! " + "; ".join(f"{k}: {v}" for k, v in r["missingPrices"].items()) \
+                if r["missingPrices"] else ""
+            print(f"{r['name']:<{width}}" + "".join(f"{fmt_unit(r['price'][m]):>13}" for m in MODES)
+                  + "".join(f"{fmt_unit(r['cost'][m]):>13}" for m in MODES)
+                  + "".join(f"{fmt_unit(r['profit'][m]):>13}" for m in MODES) + flag)
+    return 0
+
+
+def cmd_plan(args):
+    from . import production, sde
+
+    settings = resolve_settings(args)
+    state = json.loads(Path(args.plan).read_text("utf-8")) if Path(args.plan).exists() else {}
+    if args.stock:
+        state["stock"] = Path(args.stock).read_text("utf-8")
+    for spec in args.job or []:
+        name, _, n = spec.rpartition("=")
+        state.setdefault("jobs", {})[name.strip()] = int(n)
+    for spec in args.component or []:
+        name, _, n = spec.rpartition("=")
+        state.setdefault("components", {})[name.strip()] = int(n)
+    if args.runs:
+        state["runsPerJob"] = args.runs
+    result = production.plan(sde.production_recipes(), settings, state)
+    if args.save:
+        Path(args.plan).write_text(json.dumps(state, indent=2), encoding="utf-8")
+    for name in result["unknown"]:
+        print(f"Warning: unknown item '{name}'", file=sys.stderr)
+    print(f"Production plan ({result['runsPerJob']} runs per job, reaction ME "
+          f"{result['reactionMe'] * 100:.2f} %, {result['stockItems']} stock items)")
+    print(f"\n{'Complex / hybrid':<30} {'for comp.':>10} {'stock':>12} {'auto':>6} {'manual':>6} {'jobs':>6} "
+          f"{'output':>12}" + "".join(f"{'Value ' + m.capitalize():>18}" for m in MODES))
+    for t in result["top"]:
+        print(f"{t['name']:<30} {t['componentNeed']:>10,} {t['stock']:>12,} {t['autoJobs']:>6} "
+              f"{t['manualJobs']:>6} {t['jobs']:>6} {t['output']:>12,.0f}"
+              + "".join(f"{fmt_isk(t['value'][m]):>18}" for m in MODES))
+    print(f"\n{'Simple reaction':<30} {'need':>12} {'stock':>12} {'jobs':>6} {'output':>12} {'surplus':>10}")
+    for x in result["simple"]:
+        print(f"{x['name']:<30} {x['need']:>12,} {x['stock']:>12,} {x['jobs']:>6} {x['output']:>12,.0f} "
+              f"{x['surplus']:>10,.0f}")
+    print(f"\n{'Shopping list':<30} {'need':>12} {'stock':>12} {'to buy':>12}"
+          + "".join(f"{'Cost ' + m.capitalize():>18}" for m in MODES))
+    for x in result["shopping"]:
+        print(f"{x['name']:<30} {x['need']:>12,} {x['stock']:>12,} {x['toBuy']:>12,}"
+              + "".join(f"{fmt_isk(x['cost'][m]):>18}" for m in MODES))
+    print(f"{'Total':<69}" + "".join(f"{fmt_isk(result['shoppingTotal'][m]):>18}" for m in MODES))
+    for item, note in result["missingPrices"].items():
+        print(f"Price note: {item}: {note}")
     return 0
 
 
@@ -237,7 +313,7 @@ def cmd_verify(args):
     known = [i for i in report["issues"] if i["known"]]
     new = [i for i in report["issues"] if not i["known"]]
     if known:
-        print(f"\nKnown API problems (handled by the calculator page fallback):")
+        print("\nKnown API problems (handled by the calculator page fallback):")
         for key in dict.fromkeys(i["group"] for i in known):
             count = sum(1 for i in known if i["group"] == key)
             print(f"  {key}: {count} reactions - {GROUPS[key].issue}")
@@ -292,8 +368,8 @@ def build_parser():
     calc = sub.add_parser("calc", help="profit table for all (or selected) reactions")
     calc.add_argument("groups", nargs="*", help="group or calculator names (default: all)")
     calc.add_argument("--source", choices=("auto", "api", "web"), default="auto")
-    calc.add_argument("--sort", choices=("profit", "profit_percent", "profit_per_hour"),
-                      help="one ranked list instead of per-group tables")
+    calc.add_argument("--sort", choices=SORT_KEYS, metavar="KEY",
+                      help="one ranked list, e.g. profit_split, profit_buy, cost_sell, profitPercent_split")
     calc.add_argument("--top", type=int, help="only show the best N rows")
     calc.add_argument("--format", choices=("table", "csv", "json"), default="table")
     calc.add_argument("--full", action="store_true", help="json: include full calculation detail")
@@ -334,6 +410,22 @@ def build_parser():
     chk.add_argument("--json", action="store_true")
     chk.add_argument("--rate", type=float, default=5.0)
     chk.set_defaults(func=cmd_check_sheet)
+
+    ch = sub.add_parser("chain", help="cost chain like sheet 7 (moon goo -> reactions -> T2 components)")
+    ch.add_argument("only", nargs="*", help="simple, complex, hybrid, components, capital")
+    add_settings_args(ch)
+    ch.set_defaults(func=cmd_chain)
+
+    pl = sub.add_parser("plan", help="production planner like sheet 8.1")
+    pl.add_argument("--plan", default="planner.json", help="plan file (default: planner.json)")
+    pl.add_argument("--job", action="append", metavar="REACTION=JOBS", help="e.g. 'Fullerides=2'")
+    pl.add_argument("--component", action="append", metavar="COMPONENT=UNITS",
+                    help="e.g. 'Antimatter Reactor Unit=1000'")
+    pl.add_argument("--stock", metavar="FILE", help="text file with items copied from EVE")
+    pl.add_argument("--runs", type=int, help="runs per reaction job (default 544)")
+    pl.add_argument("--save", action="store_true", help="store the given jobs/stock in the plan file")
+    add_settings_args(pl)
+    pl.set_defaults(func=cmd_plan)
 
     srv = sub.add_parser("serve", help="start the web interface")
     srv.add_argument("--host", default="127.0.0.1")

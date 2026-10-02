@@ -23,6 +23,7 @@ PyInstaller.__main__.run([
     "--collect-submodules", "reactionding",
     "--hidden-import", "openpyxl",
     "--add-data", f"{ROOT / 'reactionding' / 'web'}{os.pathsep}reactionding/web",
+    "--add-data", f"{ROOT / 'reactionding' / 'data'}{os.pathsep}reactionding/data",
     "--distpath", str(ROOT / "dist"),
     "--workpath", str(ROOT / "build"),
     "--specpath", str(ROOT / "build"),

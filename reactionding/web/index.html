@@ -9,8 +9,8 @@
   :root {
     --bg: #0f1216; --panel: #171c22; --panel2: #1e252d; --line: #2b343e;
     --text: #d9e1e8; --muted: #8b98a5; --accent: #e3a33b;
-    --good: #2f7d4a; --good-bg: rgba(47,125,74,.18); --bad: #a8403a; --bad-bg: rgba(168,64,58,.16);
-    --warn: #b8862b;
+    --good-bg: rgba(47,125,74,.18); --bad-bg: rgba(168,64,58,.16); --warn: #d1a03d;
+    --buy: #6aa7e0; --split: #c7a6f0; --sell: #e3a33b;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -19,86 +19,97 @@
            display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   header h1 { font-size: 17px; margin: 0; color: var(--accent); letter-spacing: .3px; }
   header .status { color: var(--muted); font-size: 13px; margin-left: auto; }
-  main { padding: 12px 16px 40px; max-width: 1400px; margin: 0 auto; }
-  form#settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                  gap: 8px 12px; background: var(--panel); border: 1px solid var(--line);
-                  padding: 12px; border-radius: 6px; }
-  form#settings label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
-  input, select, button { font: inherit; color: var(--text); background: var(--panel2);
+  main { padding: 12px 16px 40px; max-width: 1500px; margin: 0 auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); padding: 12px; border-radius: 6px; }
+  form#settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; }
+  form#settings label, .field { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+  input, select, button, textarea { font: inherit; color: var(--text); background: var(--panel2);
                           border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; }
-  input:focus, select:focus { outline: 1px solid var(--accent); }
-  .actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
   button { cursor: pointer; }
   button.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .5; cursor: progress; }
   nav.tabs { display: flex; gap: 4px; margin: 14px 0 8px; flex-wrap: wrap; }
-  nav.tabs button { border-radius: 4px 4px 0 0; }
   nav.tabs button.active { background: var(--accent); color: #111; border-color: var(--accent); }
+  nav.main { margin-top: 14px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  nav.main button { font-weight: 600; padding: 7px 14px; }
   section.group { margin: 18px 0; }
   section.group h2 { font-size: 15px; margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .badge { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--panel2);
            border: 1px solid var(--line); color: var(--muted); font-weight: normal; }
-  .badge.web { border-color: var(--warn); color: var(--warn); }
-  .note { font-size: 12px; color: var(--warn); font-weight: normal; }
+  .note, .warn { font-size: 12px; color: var(--warn); font-weight: normal; }
   .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
   table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-  th, td { padding: 5px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th, td { padding: 5px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { background: var(--panel2); text-align: right; font-weight: 600; cursor: pointer; user-select: none; }
   th:first-child, td:first-child { text-align: left; }
   td { text-align: right; }
+  th.buy { color: var(--buy); } th.split { color: var(--split); } th.sell { color: var(--sell); }
+  th.first-of-block, td.first-of-block { border-left: 1px solid var(--line); }
   th.sorted::after { content: " ▾"; color: var(--accent); }
   th.sorted.asc::after { content: " ▴"; }
   tr.row { cursor: pointer; }
   tr.row.good { background: var(--good-bg); }
   tr.row.bad { background: var(--bad-bg); }
   tr.row:hover { filter: brightness(1.25); }
-  tr.row.err td { color: var(--bad); }
+  tr.row.err td { color: #f08a80; }
+  tr.total td { font-weight: 700; background: var(--panel2); }
   td.pos { color: #6fd08e; } td.neg { color: #f08a80; }
-  td.chosen { outline: 1px solid var(--accent); outline-offset: -1px; font-weight: 600; }
   tr.detail td { background: var(--panel); text-align: left; white-space: normal; padding: 10px 14px; }
-  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
   .detail-grid table th { cursor: default; }
-  .detail-grid h4 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
+  h4 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
   .tag { color: var(--muted); font-size: 12px; }
   .empty { color: var(--muted); padding: 20px; text-align: center; }
   .error { color: #f08a80; }
+  .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .plan-grid .list { max-height: 360px; overflow-y: auto; display: grid; grid-template-columns: 1fr 90px;
+                     gap: 3px 8px; align-items: center; font-size: 13px; }
+  .plan-grid .list input { width: 90px; text-align: right; padding: 3px 6px; }
+  textarea { width: 100%; min-height: 200px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .warn-icon { color: var(--warn); cursor: help; }
 </style>
 </head>
 <body>
 <header>
   <h1>EVE Reaction Ding</h1>
-  <span class="tag">Reaction profits via reactions.coalition.space</span>
+  <span class="tag">Quantities: reactions.coalition.space · Recipes: CCP SDE · Prices: Jita 4-4 live (ESI)</span>
   <span class="status" id="status">Loading…</span>
 </header>
 <main>
-  <form id="settings" autocomplete="off"></form>
-  <nav class="tabs" id="tabs"></nav>
-  <div id="content"><div class="empty">Press <b>Calculate</b> to load all reactions.</div></div>
+  <div class="panel">
+    <form id="settings" autocomplete="off"></form>
+    <div class="actions">
+      <button type="button" id="save">Save settings</button>
+      <button type="button" id="reset">Reset</button>
+      <span class="tag">Buy = highest buy order · Sell = lowest sell order · Split = middle of both (Jita 4-4, live from ESI)</span>
+    </div>
+  </div>
+  <nav class="tabs main" id="mainTabs"></nav>
+  <div id="view"></div>
 </main>
 <script>
 "use strict";
+const MODES = ["buy", "split", "sell"];
+const MODE_TEXT = { buy: "Buy", split: "Split", sell: "Sell" };
 const LABELS = {
-  input: "In Method", inMarket: "In Market", output: "Out Method", outMarket: "Out Market",
-  brokers: "Broker Fee %", sales: "Sales Tax %", skill: "Reactions", facility: "Facility",
-  rigs: "Rig", space: "Space", system: "System", tax: "IndyTax %", scc: "SCC %",
-  duration: "Build Time (min)", cycles: "Cycles", costIndex: "Cost Index % (WH)",
-  prismaticite: "Prismaticite %",
+  system: "System", brokers: "Broker Fee %", sales: "Sales Tax %", skill: "Reactions", facility: "Facility",
+  rigs: "Rig", space: "Space", tax: "IndyTax %", scc: "SCC %", duration: "Build Time (min)", cycles: "Cycles",
+  costIndex: "Cost Index % (WH)", prismaticite: "Prismaticite %", componentMe: "Component ME %",
 };
-const METHOD_TEXT = { buy: "Buy", split: "Split (middle)", sell: "Sell" };
 const OPTION_TEXT = { rigs: { 0: "No Rig", 1: "Tech 1 Rig", 2: "Tech 2 Rig" },
-                      input: METHOD_TEXT, output: METHOD_TEXT,
                       facility: { medium: "medium Refinery", large: "large Refinery" },
                       skill: { 1: "Level 1", 2: "Level 2", 3: "Level 3", 4: "Level 4", 5: "Level 5" } };
-const COLS = [
-  ["name", "Reaction"], ["inputs", "Inputs"], ["taxes", "Tax"], ["output", "Output"],
-  ["profit", "Profit"], ["profitPercent", "% prof."], ["profitPerHour", "Profit / h"],
-];
-let META = null, ROWS = [], TAB = "all";
+let META = null, VIEW = "reactions";
+const state = { rows: [], tab: "all", chain: null, chainTab: "complex", plan: null, planMeta: null, planResult: null };
 const sortState = {};
-const isk = v => v == null ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+const isk = v => v == null ? "–" : Math.round(v).toLocaleString("en-US");
+const unit = v => v == null ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: v < 1000 ? 2 : 0 });
 const pct = v => v == null ? "–" : v.toFixed(2) + " %";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const $ = id => document.getElementById(id);
+const signCls = v => v == null ? "" : v >= 0 ? "pos" : "neg";
 
 async function api(path, body) {
   const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
@@ -107,13 +118,20 @@ async function api(path, body) {
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
+function status(text, error) { const s = $("status"); s.textContent = text; s.className = "status" + (error ? " error" : ""); }
+function formSettings() {
+  const out = {};
+  for (const el of $("settings").elements) if (el.name) out[el.name] = el.value;
+  return out;
+}
 
+// ---------- settings ----------
 function buildForm() {
   const form = $("settings");
   for (const [key, spec] of Object.entries(META.schema)) {
     const value = META.settings[key];
     let field;
-    if (spec.kind === "enum" || spec.kind === "int_enum" || spec.kind === "market") {
+    if (spec.kind === "enum" || spec.kind === "int_enum") {
       field = `<select name="${key}">` + spec.rule.map(o =>
         `<option value="${o}" ${String(o) === String(value) ? "selected" : ""}>${esc((OPTION_TEXT[key] || {})[o] || o)}</option>`).join("") + "</select>";
     } else {
@@ -123,52 +141,116 @@ function buildForm() {
     }
     form.insertAdjacentHTML("beforeend", `<label title="${esc(spec.label)}">${LABELS[key] || key}${field}</label>`);
   }
-  form.insertAdjacentHTML("beforeend", `<div class="actions">
-      <button type="submit" class="primary" id="calc">Calculate</button>
-      <label style="flex-direction:row;align-items:center;gap:6px">Source
-        <select id="source"><option value="auto">auto (API + fallback)</option>
-        <option value="api">API only</option><option value="web">calculator page only</option></select></label>
-      <button type="button" id="save">Save as default</button>
-      <button type="button" id="reset">Reset</button>
-      <button type="button" id="csv">Export CSV</button></div>`);
-  form.addEventListener("submit", e => { e.preventDefault(); run(); });
   $("save").onclick = async () => {
     try { await api("/api/settings", { settings: formSettings() }); status("Settings saved."); }
     catch (e) { status(e.message, true); }
   };
-  $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; };
-  $("csv").onclick = exportCsv;
-  updateCostIndex();
+  $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; updateCostIndex(); };
   form.elements.space.addEventListener("change", updateCostIndex);
-  for (const k of ["input", "output"]) form.elements[k].addEventListener("change", () => { if (ROWS.length) render(); });
+  updateCostIndex();
+}
+function updateCostIndex() { const f = $("settings").elements; f.costIndex.disabled = f.space.value !== "wormhole"; }
+
+// ---------- generic sortable table ----------
+// cols: [{key, title, cls, fmt, value(row), first}]
+function sortRows(rows, id, cols) {
+  const st = sortState[id];
+  if (!st) return rows;
+  const col = cols.find(c => c.key === st.key) || cols[0];
+  const val = col.value || (r => r[col.key]);
+  const dir = st.asc ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const x = val(a), y = val(b);
+    if (typeof x === "string" || typeof y === "string") return dir * String(x).localeCompare(String(y));
+    return dir * ((x ?? -Infinity) - (y ?? -Infinity));
+  });
+}
+function tableHtml(id, rows, cols, rowAttrs) {
+  const st = sortState[id] || {};
+  const head = cols.map(c => `<th data-sort="${c.key}" data-table="${id}" class="${c.cls || ""} ${c.first ? "first-of-block" : ""} ${st.key === c.key ? "sorted" + (st.asc ? " asc" : "") : ""}">${c.title}</th>`).join("");
+  const body = sortRows(rows, id, cols).map(r => {
+    const attrs = rowAttrs ? rowAttrs(r) : "";
+    return `<tr ${attrs}>` + cols.map(c => {
+      const v = c.value ? c.value(r) : r[c.key];
+      const html = c.html ? c.html(r) : (c.fmt || isk)(v);
+      return `<td class="${c.signed ? signCls(v) : ""} ${c.first ? "first-of-block" : ""}">${html}</td>`;
+    }).join("") + "</tr>";
+  }).join("");
+  return `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+document.addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]");
+  if (!th) return;
+  const id = th.dataset.table, key = th.dataset.sort, cur = sortState[id];
+  sortState[id] = { key, asc: cur && cur.key === key ? !cur.asc : key === "name" };
+  render();
+});
+const modeCols = (prefix, title, opts = {}) => MODES.map((m, i) => ({
+  key: `${prefix}_${m}`, title: `${title} ${MODE_TEXT[m]}`, cls: m, first: i === 0, ...opts,
+  value: opts.value ? (r => opts.value(r, m)) : undefined,
+}));
+
+// ---------- view switching ----------
+function buildMainTabs() {
+  const tabs = [["reactions", "Reactions"], ["chain", "Cost chain (sheet 7)"], ["planner", "Planner (sheet 8.1)"]];
+  $("mainTabs").innerHTML = tabs.map(([k, t]) => `<button type="button" data-view="${k}" class="${k === VIEW ? "active" : ""}">${t}</button>`).join("");
+  $("mainTabs").onclick = e => {
+    const k = e.target.dataset.view;
+    if (!k) return;
+    if (VIEW === "planner" && $("stock")) state.plan = readPlan();  // keep unsaved planner input
+    VIEW = k; buildMainTabs(); render();
+  };
+}
+function render() {
+  if (VIEW === "reactions") return renderReactions();
+  if (VIEW === "chain") return renderChain();
+  return renderPlanner();
 }
 
-function updateCostIndex() {
-  const form = $("settings");
-  form.elements.costIndex.disabled = form.elements.space.value !== "wormhole";
+// ---------- reactions ----------
+function renderReactions() {
+  const groupsTabs = [["all", "All"], ...Object.entries(META.calculators), ["ranking", "Ranking"]];
+  let html = `<div class="actions"><button class="primary" id="calc">Calculate</button>
+    <label class="tag">Source <select id="source"><option value="auto">auto (API + fallback)</option>
+      <option value="api">API only</option><option value="web">calculator page only</option></select></label>
+    <button id="csv">Export CSV</button>
+    <span class="tag">Cost = input materials + market fees + job cost · Profit = output value − market fees − cost</span></div>
+    <nav class="tabs">${groupsTabs.map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? "active" : ""}">${esc(t)}</button>`).join("")}</nav>`;
+  const rows = state.rows;
+  if (!rows.length) html += '<div class="empty">Press <b>Calculate</b> to load all reactions (takes about 30 seconds).</div>';
+  const cols = [
+    { key: "name", title: "Reaction", fmt: x => x, html: r => esc(r.name) + (state.tab === "ranking" ? ` <span class="tag">${esc(r.groupTitle)}</span>` : "")
+        + warnIcon([...(r.notes || []), ...Object.entries(r.missingPrices || {}).map(([k, v]) => `${k}: ${v}`)]) },
+    ...modeCols("cost", "Cost"), ...modeCols("profit", "Profit", { signed: true }),
+  ];
+  const attrs = r => `class="row ${r.error ? "err" : r.profit_split > 0 ? "good" : "bad"}" data-key="${r.group}:${r.id}"`;
+  if (rows.length && state.tab === "ranking") {
+    if (!sortState.ranking) sortState.ranking = { key: "profit_split", asc: false };
+    html += `<section class="group"><h2>All reactions ranked</h2>${tableHtml("ranking", rows.filter(r => !r.error), cols, attrs)}</section>`;
+  } else if (rows.length) {
+    for (const g of META.groups) {
+      if (state.tab !== "all" && g.calculator !== state.tab) continue;
+      const gr = rows.filter(r => r.group === g.key);
+      if (!gr.length) continue;
+      const src = gr[0].source;
+      html += `<section class="group"><h2>${esc(g.title)} <span class="badge">${src === "web" ? "calculator page" : "API"}</span>
+        ${src === "web" && g.issue ? `<span class="note">⚠ ${esc(g.issue)}</span>` : ""}</h2>${tableHtml(g.key, gr, cols, attrs)}</section>`;
+    }
+  }
+  $("view").innerHTML = html;
+  $("calc").onclick = runReactions;
+  $("csv").onclick = exportCsv;
+  document.querySelector("nav.tabs:not(.main)").onclick = e => { const k = e.target.dataset.tab; if (k) { state.tab = k; render(); } };
 }
-
-function formSettings() {
-  const out = {};
-  for (const el of $("settings").elements) if (el.name) out[el.name] = el.value;
-  return out;
+function warnIcon(list) {
+  return list.length ? ` <span class="warn-icon" title="${esc(list.join("\n"))}">⚠</span>` : "";
 }
-
-function status(text, error) { const s = $("status"); s.textContent = text; s.className = "status" + (error ? " error" : ""); }
-
-function buildTabs() {
-  const tabs = [["all", "All"], ...Object.entries(META.calculators), ["ranking", "Ranking"]];
-  $("tabs").innerHTML = tabs.map(([k, t]) => `<button type="button" data-tab="${k}" class="${k === TAB ? "active" : ""}">${esc(t)}</button>`).join("");
-  $("tabs").onclick = e => { const k = e.target.dataset.tab; if (k) { TAB = k; buildTabs(); render(); } };
-}
-
-async function run() {
+async function runReactions() {
   const settings = formSettings(), source = $("source").value;
   $("calc").disabled = true;
-  ROWS = [];
+  state.rows = [];
   const groups = META.groups;
   try {
-    // web-sourced groups share one page request per calculator, so batch those
     const batches = [];
     const webKeys = groups.filter(g => (source === "auto" ? g.source : source) === "web").map(g => g.key);
     for (const calc of Object.keys(META.calculators)) {
@@ -177,152 +259,189 @@ async function run() {
     }
     for (const g of groups) if (!webKeys.includes(g.key)) batches.push([g.key]);
     let done = 0;
-    const warns = new Set(), notes = new Set();
-    const total = groups.reduce((n, g) => n + g.items.length, 0);
+    const total = groups.reduce((n, g) => n + g.items.length, 0), notes = new Set(), warns = new Set();
     for (const keys of batches) {
       status(`Calculating… ${done}/${total} reactions`);
       const data = await api("/api/calc", { settings, source, groups: keys });
-      ROWS.push(...data.rows);
-      (data.warnings || []).forEach(w => warns.add(w));
+      state.rows.push(...data.rows);
       (data.notes || []).forEach(n => notes.add(n));
+      (data.warnings || []).forEach(w => warns.add(w));
       if (data.settings.system !== $("settings").elements.system.value) $("settings").elements.system.value = data.settings.system;
       done += data.rows.length;
-      render();
+      if (VIEW === "reactions") render();
     }
-    const errors = ROWS.filter(r => r.error).length;
-    status(`${ROWS.length} reactions calculated ${new Date().toLocaleTimeString()}` + (errors ? ` – ${errors} errors` : "")
-           + [...notes].map(n => " · " + n).join("")
-           + [...warns].map(w => " ⚠ " + w).join(""), errors > 0 || warns.size > 0);
-  } catch (e) {
-    status(e.message, true);
-  } finally {
-    $("calc").disabled = false;
-  }
+    const errors = state.rows.filter(r => r.error).length;
+    status(`${state.rows.length} reactions calculated ${new Date().toLocaleTimeString()}` + (errors ? ` – ${errors} errors` : "")
+           + [...notes].map(n => " · " + n).join("") + [...warns].map(w => " ⚠ " + w).join(""), errors > 0 || warns.size > 0);
+  } catch (e) { status(e.message, true); }
+  finally { const b = $("calc"); if (b) b.disabled = false; }
 }
-
-// Buy / Split / Sell: every row carries all 9 combinations, so switching needs no new request.
-function applyView() {
-  const f = $("settings").elements, key = `${f.input.value}|${f.output.value}`;
-  for (const r of ROWS) {
-    const v = r.views && r.views[key];
-    if (!v) continue;
-    Object.assign(r, { inputs: v.inputs, taxes: v.taxes, output: v.output, profit: v.profit,
-                       profitPercent: v.profitPercent, profitPerHour: v.profitPerHour,
-                       inputMethod: f.input.value, outputMethod: f.output.value });
-  }
-}
-
-function sortRows(rows, id) {
-  const st = sortState[id];
-  if (!st) return rows;
-  const dir = st.asc ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const x = a[st.key], y = b[st.key];
-    if (typeof x === "string") return dir * x.localeCompare(y);
-    return dir * ((x ?? -Infinity) - (y ?? -Infinity));
-  });
-}
-
-function tableHtml(id, rows, showGroup) {
-  const st = sortState[id] || {};
-  const head = COLS.map(([k, t]) => `<th data-sort="${k}" data-table="${id}" class="${st.key === k ? "sorted" + (st.asc ? " asc" : "") : ""}">${t}</th>`).join("");
-  const body = sortRows(rows, id).map(r => {
-    const key = `${r.group}:${r.id}`;
-    if (r.error) return `<tr class="row err" data-key="${key}"><td>${esc(r.name)}</td><td colspan="6">${esc(r.error)}</td></tr>`;
-    const cls = r.profit > 0 ? "good" : "bad";
-    const label = showGroup ? `${esc(r.name)} <span class="tag">${esc(r.groupTitle)}</span>` : esc(r.name);
-    return `<tr class="row ${cls}" data-key="${key}"><td>${label}</td><td>${isk(r.inputs)}</td><td>${isk(r.taxes)}</td>
-      <td>${isk(r.output)}</td><td class="${r.profit >= 0 ? "pos" : "neg"}">${isk(r.profit)}</td>
-      <td>${pct(r.profitPercent)}</td><td>${isk(r.profitPerHour)}</td></tr>`;
-  }).join("");
-  return `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
-}
-
-function render() {
-  applyView();
-  const content = $("content");
-  if (!ROWS.length) { content.innerHTML = '<div class="empty">Calculating…</div>'; return; }
-  if (TAB === "ranking") {
-    if (!sortState.ranking) sortState.ranking = { key: "profit", asc: false };
-    content.innerHTML = `<section class="group"><h2>All reactions ranked</h2>${tableHtml("ranking", ROWS.filter(r => !r.error), true)}</section>`;
-    return;
-  }
-  const html = [];
-  for (const g of META.groups) {
-    if (TAB !== "all" && g.calculator !== TAB) continue;
-    const rows = ROWS.filter(r => r.group === g.key);
-    if (!rows.length) continue;
-    const src = rows[0].source;
-    html.push(`<section class="group"><h2>${esc(g.title)} <span class="badge ${src}">${src === "web" ? "calculator page" : "API"}</span>
-      ${src === "web" && g.issue ? `<span class="note">⚠ ${esc(g.issue)}</span>` : ""}</h2>${tableHtml(g.key, rows, false)}</section>`);
-  }
-  content.innerHTML = html.join("") || '<div class="empty">Nothing calculated for this tab yet.</div>';
-}
-
-$("content").addEventListener("click", e => {
-  const th = e.target.closest("th[data-sort]");
-  if (th) {
-    const id = th.dataset.table, key = th.dataset.sort, cur = sortState[id];
-    sortState[id] = { key, asc: cur && cur.key === key ? !cur.asc : key === "name" };
-    render();
-    return;
-  }
+$("view").addEventListener("click", e => {
+  if (VIEW !== "reactions" || e.target.closest("th")) return;
   const tr = e.target.closest("tr.row");
   if (!tr) return;
   const next = tr.nextElementSibling;
   if (next && next.classList.contains("detail")) { next.remove(); return; }
   const [group, id] = tr.dataset.key.split(":");
-  const row = ROWS.find(r => r.group === group && String(r.id) === id);
-  if (row && row.result) tr.insertAdjacentHTML("afterend", `<tr class="detail"><td colspan="7">${detailHtml(row)}</td></tr>`);
+  const row = state.rows.find(r => r.group === group && String(r.id) === id);
+  if (row && row.result) tr.insertAdjacentHTML("afterend", `<tr class="detail"><td colspan="7">${reactionDetail(row)}</td></tr>`);
 });
-
-function detailHtml(row) {
-  const r = row.result, t = r.taxes || {}, c = r.cycle_data || {}, f = $("settings").elements;
-  const im = f.input.value, om = f.output.value, v = row.views[`${im}|${om}`], p = row.prices || {};
-  const unit = x => x == null ? "–" : x.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  const priceCells = (name, chosen) => ["buy", "split", "sell"].map(m =>
-    `<td class="${m === chosen ? "chosen" : ""}">${unit((p[name] || {})[m])}</td>`).join("");
-  const inputs = (r.input || []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td>${priceCells(x.name, im)}
-      <td>${isk(x.quantity * ((p[x.name] || {})[im] || 0))}</td></tr>`).join("");
+function reactionDetail(row) {
+  const r = row.result, c = r.cycle_data || {}, p = row.prices || {}, v = row.views;
   const outs = Array.isArray(r.output) ? r.output : [r.output || {}];
-  const left = (Array.isArray(r.remaining) ? r.remaining : []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td><td>${isk(x.price)}</td></tr>`).join("");
-  const tax = [["System cost", t.system], ["Facility", t.facility], ["SCC", t.scc],
-               [`Market fees inputs (${im})`, v.inputFees], [`Market fees output (${om})`, v.outputFees], ["Total", v.taxes]]
-    .map(([k, val]) => `<tr><td>${k}</td><td>${isk(val)}</td></tr>`).join("");
-  const modes = ["buy", "split", "sell"];
-  const matrix = `<table><tr><th>Inputs ↓ / Output →</th>${modes.map(m => `<th>${METHOD_TEXT[m]}</th>`).join("")}</tr>` +
-    modes.map(i => `<tr><td>${METHOD_TEXT[i]}</td>` + modes.map(o2 => {
-      const val = row.views[`${i}|${o2}`].profit;
-      return `<td class="${val >= 0 ? "pos" : "neg"} ${i === im && o2 === om ? "chosen" : ""}">${isk(val)}</td>`;
-    }).join("") + "</tr>").join("") + "</table>";
-  const inM = esc(f.inMarket.value), outM = esc(f.outMarket.value);
+  const line = (x, label) => `<tr><td>${label}${esc(x.name)}${(p[x.name] || {}).note ? warnIcon([p[x.name].note]) : ""}</td><td>${isk(x.quantity)}</td>`
+    + MODES.map(m => `<td>${unit((p[x.name] || {})[m])}</td>`).join("") + "</tr>";
+  const items = (r.input || []).map(x => line(x, "")).join("") + outs.map(x => line(x, "<b>Output:</b> ")).join("");
+  const rows = [["inputs", "Input materials"], ["inputFees", "Market fees inputs"], ["install", "Job cost (system, facility, SCC)"],
+                ["cost", "<b>= Cost</b>"], ["output", "Output value"], ["outputFees", "Market fees output"],
+                ["profit", "<b>= Profit</b>"], ["profitPerHour", "Profit per hour"]]
+    .map(([k, t]) => `<tr><td>${t}</td>` + MODES.map(m => `<td class="${k === "profit" ? signCls(v[m][k]) : ""}">${isk(v[m][k])}</td>`).join("") + "</tr>").join("")
+    + `<tr><td>% profit</td>` + MODES.map(m => `<td>${pct(v[m].profitPercent)}</td>`).join("") + "</tr>";
+  const notes = [...(row.notes || [])].map(n => `<p class="warn">⚠ ${esc(n)}</p>`).join("");
   return `<div class="detail-grid">
-    <div><h4>Inputs <span class="tag">price per unit, ${inM}</span></h4><table><tr><th>Item</th><th>Quantity</th><th>Buy</th><th>Split</th><th>Sell</th><th>Cost (${im})</th></tr>${inputs}
-      ${outs.map(o => `<tr><td><b>Output: ${esc(o.name || "")}</b> <span class="tag">${outM}</span></td><td>${isk(o.quantity)}</td>${priceCells(o.name, om)}<td>${isk(o.quantity * ((p[o.name] || {})[om] || 0))}</td></tr>`).join("")}</table>
-      ${left ? `<h4 style="margin-top:10px">Left over</h4><table><tr><th>Item</th><th>Quantity</th><th>Value</th></tr>${left}</table>` : ""}</div>
-    <div><h4>Profit by price method</h4>${matrix}
-      <h4 style="margin-top:10px">Taxes</h4><table>${tax}</table>
-      <p class="tag">Runs: ${isk(r.runs)}${c.cycle_time ? ` · cycle time ${isk(c.cycle_time)} s` : ""} · window ${isk(c.total_time)} min · type id ${row.id} · source ${row.source}</p></div>
+    <div><h4>Materials <span class="tag">price per unit, Jita 4-4</span></h4><table><tr><th>Item</th><th>Quantity</th><th class="buy">Buy</th><th class="split">Split</th><th class="sell">Sell</th></tr>${items}</table></div>
+    <div><h4>Cost and profit</h4><table><tr><th></th><th class="buy">Buy</th><th class="split">Split</th><th class="sell">Sell</th></tr>${rows}</table>
+      <p class="tag">Runs: ${isk(row.runs)}${c.cycle_time ? ` · cycle time ${isk(c.cycle_time)} s` : ""} · window ${isk(c.total_time)} min · type id ${row.id} · quantities from ${row.source === "web" ? "calculator page" : "calculator API"}</p>${notes}</div>
   </div>`;
 }
-
 function exportCsv() {
-  if (!ROWS.length) return status("Nothing to export – calculate first.", true);
-  const head = ["Calculator", "Group", "Reaction", "Type ID", "Source", "Input method", "Output method", "Inputs", "Tax", "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"];
+  if (!state.rows.length) return status("Nothing to export – calculate first.", true);
+  const head = ["Calculator", "Group", "Reaction", "Type ID", ...MODES.map(m => `Cost ${m}`), ...MODES.map(m => `Profit ${m}`), "Runs", "Notes", "Error"];
+  download("reactions", [head, ...state.rows.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id,
+    ...MODES.map(m => r[`cost_${m}`]), ...MODES.map(m => r[`profit_${m}`]), r.runs, (r.notes || []).join("; "), r.error])]);
+}
+function download(name, rows) {
   const q = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
-  const lines = [head.join(",")].concat(ROWS.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id, r.source,
-    r.inputMethod, r.outputMethod, r.inputs, r.taxes, r.output, r.profit, r.profitPercent, r.profitPerHour, r.runs, r.error].map(q).join(",")));
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
-  a.download = `reactions-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;
+  a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" }));
+  a.download = `${name}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// ---------- cost chain (sheet 7) ----------
+function renderChain() {
+  const tabs = [["simple", "Simple Reactions"], ["complex", "Complex Reactions"], ["hybrid", "Hybrid Reactions"],
+                ["components", "T2 Components"], ["capital", "Capital T2 Components"]];
+  let html = `<div class="actions"><button class="primary" id="loadChain">Calculate cost chain</button>
+    <span class="tag">Material cost per unit when you react everything yourself (moon goo → simple → complex → components), like sheet 7.
+    No job cost or market fees. Recipes: CCP SDE, reaction ME from rig settings, component ME from settings.</span></div>
+    <nav class="tabs">${tabs.map(([k, t]) => `<button data-ctab="${k}" class="${k === state.chainTab ? "active" : ""}">${t}</button>`).join("")}</nav>`;
+  if (!state.chain) html += '<div class="empty">Press <b>Calculate cost chain</b>.</div>';
+  else {
+    const cols = [
+      { key: "name", title: "Item", fmt: x => x, html: r => esc(r.name) + warnIcon(Object.entries(r.missingPrices).map(([k, v]) => `${k}: ${v}`)) },
+      ...MODES.map((m, i) => ({ key: `price_${m}`, title: `Jita ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.price[m] })),
+      ...MODES.map((m, i) => ({ key: `cost_${m}`, title: `Cost ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.cost[m] })),
+      ...MODES.map((m, i) => ({ key: `profit_${m}`, title: `Profit ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, signed: true, value: r => r.profit[m] })),
+      { key: "margin_split", title: "Margin Split", first: true, fmt: pct, value: r => r.margin.split },
+      { key: "ppr_split", title: "Profit/run Split", fmt: isk, signed: true, value: r => r.profitPerRun.split },
+    ];
+    html += tableHtml("chain_" + state.chainTab, state.chain[state.chainTab], cols, r => `class="${(r.profit.split || 0) >= 0 ? "row good" : "row bad"}"`);
+    html += `<p class="tag">Reaction ME ${(state.chain.reactionMe * 100).toFixed(2)} % · component ME ${(state.chain.componentMe * 100).toFixed(0)} % · profit per unit = Jita price − cost (same method)</p>`;
+  }
+  $("view").innerHTML = html;
+  $("loadChain").onclick = loadChain;
+  document.querySelector("nav.tabs:not(.main)").onclick = e => { const k = e.target.dataset.ctab; if (k) { state.chainTab = k; render(); } };
+}
+async function loadChain() {
+  $("loadChain").disabled = true;
+  status("Calculating cost chain…");
+  try {
+    const data = await api("/api/chain", { settings: formSettings() });
+    state.chain = data.chain;
+    status(`Cost chain calculated ${new Date().toLocaleTimeString()} · CCP SDE build ${data.sde.build}${data.sde.offline ? " (offline copy)" : ""}`
+           + (data.notes || []).map(n => " · " + n).join(""));
+    render();
+  } catch (e) { status(e.message, true); const b = $("loadChain"); if (b) b.disabled = false; }
+}
+
+// ---------- planner (sheet 8.1) ----------
+async function renderPlanner() {
+  if (!state.planMeta) {
+    $("view").innerHTML = '<div class="empty">Loading recipes…</div>';
+    try { state.planMeta = await api("/api/planner/meta"); state.plan = state.planMeta.plan; }
+    catch (e) { status(e.message, true); return; }
+  }
+  const pm = state.planMeta, plan = state.plan;
+  const list = (names, key, title) => `<div><h4>${title}</h4><div class="list">` + names.map(n =>
+    `<span>${esc(n)}</span><input type="number" min="0" step="1" data-plan="${key}" data-name="${esc(n)}" value="${(plan[key] || {})[n] || ""}" placeholder="0">`).join("") + "</div></div>";
+  let html = `<div class="panel"><div class="plan-grid">
+      ${list(pm.complex, "jobs", "Complex reactions – jobs")}
+      ${list(pm.hybrid, "jobs", "Hybrid reactions – jobs")}
+      ${list([...pm.components, ...pm.capital], "components", "Components to build – units")}
+      <div><h4>Stock <span class="tag">paste from EVE (inventory, select all, Ctrl+C)</span></h4>
+        <textarea id="stock" placeholder="Cadmium&#9;100.000&#10;Caesarium Cadmide&#9;50.000">${esc(plan.stock || "")}</textarea></div>
+    </div>
+    <div class="actions">
+      <label class="field" style="flex-direction:row;align-items:center;gap:6px">Runs per job <input id="runsPerJob" type="number" min="1" style="width:90px" value="${plan.runsPerJob || 544}"></label>
+      <button class="primary" id="runPlan">Calculate plan</button>
+      <button id="savePlan">Save plan</button>
+      <button id="clearPlan">Clear</button>
+      <span class="tag">Components → complex jobs (automatic) → simple jobs → moon goo + fuel to buy. Stock is subtracted at every step.</span>
+    </div></div>`;
+  const res = state.planResult;
+  if (res) {
+    const valueCols = prefix => MODES.map((m, i) => ({ key: `${prefix}_${m}`, title: `${prefix === "value" ? "Value" : "Cost"} ${MODE_TEXT[m]}`, cls: m, first: i === 0, value: r => r[prefix][m] }));
+    html += `<section class="group"><h2>Complex / hybrid reactions</h2>` + tableHtml("plan_top", res.top, [
+      { key: "name", title: "Reaction", fmt: x => x }, { key: "componentNeed", title: "Needed for components" },
+      { key: "stock", title: "Stock" }, { key: "autoJobs", title: "Auto jobs" }, { key: "manualJobs", title: "Manual jobs" },
+      { key: "jobs", title: "Jobs" }, { key: "output", title: "Output" }, ...valueCols("value")]) + "</section>";
+    html += `<section class="group"><h2>Simple reactions needed</h2>` + tableHtml("plan_simple", res.simple, [
+      { key: "name", title: "Reaction", fmt: x => x }, { key: "need", title: "Needed" }, { key: "stock", title: "Stock" },
+      { key: "short", title: "Missing" }, { key: "jobs", title: "Jobs" }, { key: "output", title: "Output" }, { key: "surplus", title: "Left over" }]) + "</section>";
+    const totalRow = { name: "Total", need: null, stock: null, toBuy: null, price: {}, cost: res.shoppingTotal };
+    html += `<section class="group"><h2>Shopping list <button id="copyBuy" style="font-size:12px">Copy for EVE Multibuy</button>
+        <button id="csvBuy" style="font-size:12px">Export CSV</button></h2>`
+      + tableHtml("plan_shop", res.shopping, [
+        { key: "name", title: "Item", fmt: x => x, html: r => esc(r.name) + (res.missingPrices[r.name] ? warnIcon([res.missingPrices[r.name]]) : "") },
+        { key: "need", title: "Needed" }, { key: "stock", title: "Stock" }, { key: "toBuy", title: "To buy" },
+        ...MODES.map((m, i) => ({ key: `price_${m}`, title: `Jita ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.price[m] })),
+        ...valueCols("cost")]).replace("</tbody>", `<tr class="total"><td>Total</td><td></td><td></td><td></td><td class="first-of-block"></td><td></td><td></td>`
+          + MODES.map((m, i) => `<td class="${i === 0 ? "first-of-block" : ""}">${isk(res.shoppingTotal[m])}</td>`).join("") + "</tr></tbody>")
+      + `<p class="tag">${res.runsPerJob} runs per job · reaction ME ${(res.reactionMe * 100).toFixed(2)} % · component ME ${(res.componentMe * 100).toFixed(0)} % · ${res.stockItems} stock items read
+         · production value: ${MODES.map(m => `${MODE_TEXT[m]} ${isk(res.productionValue[m])}`).join(" / ")}</p>`
+      + (res.unknown.length ? `<p class="warn">Unknown items: ${esc(res.unknown.join(", "))}</p>` : "") + "</section>";
+  }
+  $("view").innerHTML = html;
+  $("runPlan").onclick = () => runPlan(false);
+  $("savePlan").onclick = () => runPlan(true);
+  $("clearPlan").onclick = () => { state.plan = { runsPerJob: 544, jobs: {}, components: {}, stock: "" }; state.planResult = null; render(); };
+  if ($("copyBuy")) {
+    $("copyBuy").onclick = async () => {
+      const text = res.shopping.filter(x => x.toBuy > 0).map(x => `${x.name}\t${x.toBuy}`).join("\n");
+      try { await navigator.clipboard.writeText(text); status("Shopping list copied – paste it into EVE's Multibuy window."); }
+      catch { prompt("Copy the shopping list:", text); }
+    };
+    $("csvBuy").onclick = () => download("shopping-list", [["Item", "Needed", "Stock", "To buy", ...MODES.map(m => `Cost ${m}`)],
+      ...res.shopping.map(x => [x.name, x.need, x.stock, x.toBuy, ...MODES.map(m => x.cost[m])])]);
+  }
+}
+function readPlan() {
+  const plan = { runsPerJob: Number($("runsPerJob").value) || 544, jobs: {}, components: {}, stock: $("stock").value };
+  for (const el of document.querySelectorAll("input[data-plan]")) {
+    const n = parseInt(el.value, 10);
+    if (n > 0) plan[el.dataset.plan][el.dataset.name] = n;
+  }
+  return plan;
+}
+async function runPlan(save) {
+  state.plan = readPlan();
+  $("runPlan").disabled = true;
+  status("Calculating plan…");
+  try {
+    const data = await api("/api/plan", { settings: formSettings(), plan: state.plan, save });
+    state.planResult = data.plan;
+    status(`Plan calculated ${new Date().toLocaleTimeString()}${save ? " and saved" : ""} · CCP SDE build ${data.sde.build}`
+           + (data.notes || []).map(n => " · " + n).join(""));
+    render();
+  } catch (e) { status(e.message, true); const b = $("runPlan"); if (b) b.disabled = false; }
 }
 
 (async () => {
   try {
     META = await api("/api/meta");
-    buildForm(); buildTabs();
+    buildForm(); buildMainTabs(); render();
     status("Ready.");
   } catch (e) { status(e.message, true); }
 })();

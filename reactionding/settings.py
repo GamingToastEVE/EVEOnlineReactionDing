@@ -8,11 +8,7 @@ import json
 from pathlib import Path
 
 DEFAULTS = {
-    "inMarket": "Jita",
-    "outMarket": "Jita",
     "system": "Ignoitton",
-    "input": "buy",
-    "output": "sell",
     "brokers": 3.0,
     "sales": 3.6,
     "skill": 5,
@@ -25,19 +21,16 @@ DEFAULTS = {
     "cycles": 50,
     "costIndex": 0.0,
     "prismaticite": 50.0,
+    "componentMe": 10,
 }
 
-# Market hubs tracked by the calculator. Other names are not rejected by the API,
-# it silently prices everything at 0 ISK - so they are validated here.
-MARKETS = ("Jita", "Amarr", "Perimeter")
+# Prices are taken live from ESI (Jita 4-4) by this program. The calculator is only
+# used for quantities and job costs, so its price parameters are fixed.
+CALCULATOR_FIXED = {"inMarket": "Jita", "outMarket": "Jita", "input": "buy", "output": "sell"}
 
 # key -> (kind, rule, label)
 SCHEMA = {
-    "inMarket": ("market", MARKETS, "Input market"),
-    "outMarket": ("market", MARKETS, "Output market"),
     "system": ("str", None, "Reaction system (cost index lookup)"),
-    "input": ("enum", ("buy", "split", "sell"), "Input price method (split = middle of buy and sell)"),
-    "output": ("enum", ("buy", "split", "sell"), "Output price method (split = middle of buy and sell)"),
     "brokers": ("float", (0, 10), "Broker fee %"),
     "sales": ("float", (0, 8), "Sales tax %"),
     "skill": ("int_enum", (1, 2, 3, 4, 5), "Reactions skill level"),
@@ -50,6 +43,7 @@ SCHEMA = {
     "cycles": ("int", (1, 100000), "Cycles"),
     "costIndex": ("float", (0, 100), "Cost index % (wormhole only)"),
     "prismaticite": ("float", (0, 100), "Prismaticite luck %"),
+    "componentMe": ("int", (0, 10), "Blueprint ME % of T2 components (cost chain / planner)"),
 }
 
 ALIASES = {"indyTax": "tax", "sccTax": "scc"}
@@ -66,11 +60,6 @@ def _coerce(key, value):
         if not value:
             raise SettingsError(f"{key} must not be empty")
         return value
-    if kind == "market":
-        canonical = {m.lower(): m for m in rule}.get(str(value).strip().lower())
-        if canonical is None:
-            raise SettingsError(f"{key} must be one of {', '.join(rule)} (got {value!r})")
-        return canonical
     if kind == "enum":
         value = str(value).strip().lower()
         if value not in rule:
@@ -99,6 +88,8 @@ def normalize(values=None, base=None):
     merged = dict(base or DEFAULTS)
     for key, value in (values or {}).items():
         key = ALIASES.get(key, key)
+        if key in CALCULATOR_FIXED:
+            continue  # settings of older versions (markets / price methods)
         if key not in SCHEMA:
             raise SettingsError(f"Unknown setting '{key}'")
         if value is None or value == "":
@@ -115,13 +106,17 @@ def _fmt(value):
 
 def to_query(settings):
     """Parameters for the API (all keys are sent; costIndex is ignored outside wormholes)."""
-    return {key: _fmt(value) for key, value in settings.items()}
+    values = dict(settings, **CALCULATOR_FIXED)
+    values.pop("componentMe", None)
+    return {key: _fmt(value) for key, value in values.items()}
 
 
 def to_cookies(settings):
     """Cookies understood by the web calculator pages."""
     cookies = {"settingsMode": "single"}
-    for key, value in settings.items():
+    values = dict(settings, **CALCULATOR_FIXED)
+    values.pop("componentMe", None)
+    for key, value in values.items():
         cookies[{"tax": "indyTax", "scc": "sccTax"}.get(key, key)] = _fmt(value)
     return cookies
 

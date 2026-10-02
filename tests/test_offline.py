@@ -14,21 +14,18 @@ def result(item_id, name, profit, runs=10, inputs=(), out_qty=None):
             "cycle_data": {"total_time": 600}}
 
 
-def priced(values, name="x", item_id=1, minutes=60):
-    """Calculator-like result whose prices and market fees depend on the price methods:
-    inputs 100 (buy) / 110 (sell), output 200 (sell) / 180 (buy), install taxes 5,
-    broker fee 3 on bought inputs, 10 (broker + sales) or 4 (sales) on the output."""
-    buy_in, sell_out = values["input"] == "buy", values["output"] == "sell"
-    inputs, output = (100.0 if buy_in else 110.0), (200.0 if sell_out else 180.0)
-    fee_in, fee_out = (3.0 if buy_in else 0.0), (10.0 if sell_out else 4.0)
+def calc_result(item_id=1, name="x", minutes=60):
+    """Calculator-like result: 10 Mat + 1 Fuel in, 4 units out, job cost 5."""
     return {"id": item_id, "name": name, "runs": 2,
-            "input": [{"id": 9, "name": "Mat", "quantity": 10, "price": inputs}],
-            "output": {"id": item_id, "name": name, "quantity": 4, "price": output},
-            "input_total": inputs, "output_total": output,
-            "taxes": {"total": {"install": 5.0},
-                      "market": {"total": {"inputs": fee_in, "output": fee_out}}},
-            "profit": output - inputs - 5.0 - fee_in - fee_out,
-            "cycle_data": {"total_time": minutes}}
+            "input": [{"id": 9, "name": "Mat", "quantity": 10}, {"id": 8, "name": "Fuel", "quantity": 1}],
+            "output": {"id": item_id, "name": name, "quantity": 4},
+            "taxes": {"total": {"install": 5.0}}, "cycle_data": {"total_time": minutes}}
+
+
+PRICES = {"Mat": {"buy": 10.0, "split": 11.0, "sell": 12.0, "note": None},
+          "Fuel": {"buy": 100.0, "split": 100.0, "sell": 100.0,
+                   "note": "no sell orders in Jita 4-4 - buy price used"},
+          "x": {"buy": 50.0, "split": 55.0, "sell": 60.0, "note": None}}
 
 
 class FakeClient:
@@ -37,19 +34,28 @@ class FakeClient:
         self.web_calls = []
 
     def api_calculate(self, group, item_id, values):
-        self.api_calls.append((group.key, item_id, values["input"], values["output"]))
+        self.api_calls.append((group.key, item_id))
         if item_id == 30303:
             raise ApiError(400, "TYPE_ID_MISMATCH", "boom")
-        return priced(values, item_id=item_id)
+        return calc_result(item_id)
 
     def web_results(self, calculator, values):
-        self.web_calls.append((calculator, values["input"], values["output"]))
+        self.web_calls.append(calculator)
         pages = {}
         for g in GROUPS.values():
             if g.calculator == calculator:
                 # chain tables on the page carry no id, only the name
-                pages[g.web_key] = [dict(priced(values, n), id=None) for _, n in g.items]
+                pages[g.web_key] = [dict(calc_result(name=n), id=None) for _, n in g.items]
         return pages
+
+
+def priced_rows(groups, values=None):
+    rows = calculate(values or settings.normalize(), groups, client=FakeClient(), prices=False)
+    for row in rows:
+        if row.result:
+            row.prices = {n: PRICES.get(n, PRICES["x"]) for n in ("Mat", "Fuel", row.result["output"]["name"])}
+            row.brokers, row.sales = 3.0, 4.0
+    return rows
 
 
 class DevalueTest(unittest.TestCase):
@@ -70,10 +76,12 @@ class SettingsTest(unittest.TestCase):
         s = settings.normalize({"indyTax": "2.5", "rigs": "1", "space": "WORMHOLE", "duration": "60"})
         self.assertEqual((s["tax"], s["rigs"], s["space"], s["duration"]), (2.5, 1, "wormhole", 60))
 
-    def test_markets_are_canonical(self):
-        self.assertEqual(settings.normalize({"inMarket": "amarr"})["inMarket"], "Amarr")
-        with self.assertRaises(settings.SettingsError):
-            settings.normalize({"outMarket": "Dodixie"})  # API would price it at 0 ISK
+    def test_old_price_settings_are_ignored(self):
+        values = settings.normalize({"inMarket": "Amarr", "input": "split"})
+        self.assertNotIn("inMarket", values)
+        query = settings.to_query(values)  # the calculator always gets Jita buy/sell
+        self.assertEqual((query["inMarket"], query["input"], query["output"]), ("Jita", "buy", "sell"))
+        self.assertNotIn("componentMe", query)
 
     def test_invalid(self):
         for bad in ({"sales": 9}, {"skill": 6}, {"facility": "small"}, {"duration": 1.5}, {"foo": 1}):
@@ -115,72 +123,72 @@ class CatalogTest(unittest.TestCase):
 class EngineTest(unittest.TestCase):
     def test_auto_mixes_api_and_web(self):
         client = FakeClient()
-        rows = calculate(settings.normalize(), groups_for(["hybrid", "strong_chain"]), client=client)
+        rows = calculate(settings.normalize(), groups_for(["hybrid", "strong_chain"]), client=client,
+                         prices=False)
         self.assertEqual(len(rows), 17)
-        # one page request per price variant
-        self.assertEqual(client.web_calls, [("biochemical", "buy", "sell"), ("biochemical", "sell", "buy")])
+        self.assertEqual(client.web_calls, ["biochemical"])
+        self.assertEqual(len(client.api_calls), 9)
         hybrid = [r for r in rows if r.group.key == "hybrid"]
         self.assertTrue(all(r.source == "api" for r in hybrid))
-        self.assertEqual(len(client.api_calls), 18)  # 9 reactions x 2 variants
-        failed = [r for r in hybrid if not r.ok]
-        self.assertEqual([r.item_id for r in failed], [30303])
+        self.assertEqual([r.item_id for r in hybrid if r.result is None], [30303])
         chain = [r for r in rows if r.group.key == "strong_chain"]
-        self.assertTrue(all(r.ok and r.source == "web" for r in chain))
-        self.assertEqual(chain[0].profit, 82.0)  # 200 - 100 - (5 + 3 + 10)
-        self.assertEqual(chain[0].profit_per_hour, 82.0)
+        self.assertTrue(all(r.result and r.source == "web" for r in chain))
         # order follows the catalog
         self.assertEqual([r.item_id for r in hybrid], [i for i, _ in GROUPS["hybrid"].items])
 
-    def test_buy_split_sell_combinations(self):
-        rows = calculate(settings.normalize({"input": "split", "output": "split"}), ["simple"],
-                         client=FakeClient())
-        row = rows[0]
-        # split = middle of buy and sell, for prices and market fees
-        v = row.view()
-        self.assertEqual((v["inputs"], v["output"], v["taxes"]), (105.0, 190.0, 5.0 + 1.5 + 7.0))
-        self.assertEqual(row.profit, 190.0 - 105.0 - 13.5)
-        self.assertEqual(row.view("sell", "buy")["profit"], 180.0 - 110.0 - 9.0)
-        self.assertEqual(row.view("buy", "buy")["profit"], 180.0 - 100.0 - 12.0)
-        self.assertEqual(row.view("sell", "sell")["profit"], 200.0 - 110.0 - 15.0)
-        prices = row.unit_prices()
-        self.assertEqual(prices["Mat"], {"buy": 10.0, "split": 10.5, "sell": 11.0})
-        self.assertEqual(prices["x"], {"buy": 45.0, "split": 47.5, "sell": 50.0})
-        data = row.to_dict(full=True)
-        self.assertEqual(len(data["views"]), 9)
-        self.assertEqual(data["profit"], data["views"]["split|split"]["profit"])
+    def test_cost_and_profit_for_buy_split_sell(self):
+        row = priced_rows(["simple"])[0]
+        buy, split, sell = row.view("buy"), row.view("split"), row.view("sell")
+        # buy: inputs 10*10 + 1*100 = 200, broker 3 % = 6, job cost 5 -> cost 211
+        #      output 4*50 = 200, sold into buy orders: sales tax 4 % = 8
+        self.assertEqual((buy["inputs"], buy["inputFees"], buy["cost"]), (200.0, 6.0, 211.0))
+        self.assertEqual((buy["output"], buy["outputFees"], buy["profit"]), (200.0, 8.0, 200 - 8 - 211))
+        # sell: inputs 10*12 + 100 = 220, no broker -> cost 225; output 240, broker + sales 7 %
+        self.assertEqual(sell["cost"], 225.0)
+        self.assertAlmostEqual(sell["profit"], 240 - 240 * 0.07 - 225)
+        # split is the middle of buy and sell
+        self.assertAlmostEqual(split["cost"], (211 + 225) / 2)
+        self.assertAlmostEqual(split["profit"], (buy["profit"] + sell["profit"]) / 2)
+        d = row.to_dict(full=True)
+        self.assertEqual(set(d["views"]), {"buy", "split", "sell"})
+        self.assertAlmostEqual(d["profit_split"], split["profit"])
+        self.assertEqual(d["missingPrices"], {"Fuel": "no sell orders in Jita 4-4 - buy price used"})
 
     def test_several_outputs(self):
-        rows = calculate(settings.normalize(), ["refined"], client=FakeClient())
-        row = rows[0]
-        for res, factor in ((row.a, 1.0), (row.b, 0.9)):
-            res["output"] = [{"name": "Vanadium", "quantity": 2, "price": 100.0 * factor},
-                             {"name": "Vanadium Hafnite", "quantity": 1, "price": 100.0 * factor}]
-        prices = row.unit_prices()
-        self.assertEqual(prices["Vanadium"], {"buy": 45.0, "split": 47.5, "sell": 50.0})
-        self.assertEqual(prices["Vanadium Hafnite"]["split"], 95.0)
-        self.assertEqual(len(row.to_dict(full=True)["views"]), 9)
-
-    def test_calculator_never_gets_split(self):
-        client = FakeClient()
-        calculate(settings.normalize({"input": "split", "output": "split"}), ["hybrid", "standard"],
-                  client=client)
-        modes = {(i, o) for *_, i, o in client.api_calls} | {(i, o) for _, i, o in client.web_calls}
-        self.assertEqual(modes, {("buy", "sell"), ("sell", "buy")})
+        row = priced_rows(["refined"])[0]
+        row.result["output"] = [{"name": "x", "quantity": 2}, {"name": "x", "quantity": 1}]
+        self.assertEqual(row.view("buy")["output"], 150.0)
 
     def test_force_source(self):
         client = FakeClient()
-        rows = calculate(settings.normalize(), ["strong_chain"], source="api", client=client)
-        self.assertEqual(len(client.api_calls), 16)
+        rows = calculate(settings.normalize(), ["strong_chain"], source="api", client=client, prices=False)
+        self.assertEqual(len(client.api_calls), 8)
         self.assertEqual(client.web_calls, [])
         self.assertTrue(all(r.source == "api" for r in rows))
 
     def test_zero_output_is_json_safe(self):
-        client = FakeClient()
-        rows = calculate(settings.normalize(), ["eratic"], client=client)
-        rows[0].a["output_total"] = rows[0].b["output_total"] = 0.0
-        self.assertIsNone(rows[0].to_dict()["profitPercent"])
-        rows[0].a["profit_per"] = float("-inf")
-        self.assertIsNone(rows[0].to_dict(full=True)["result"]["profit_per"])
+        row = priced_rows(["eratic"])[0]
+        row.prices[row.result["output"]["name"]] = {"buy": 0.0, "split": 0.0, "sell": 0.0, "note": None}
+        self.assertIsNone(row.to_dict()["profitPercent_buy"])
+        row.result["profit_per"] = float("-inf")
+        self.assertIsNone(row.to_dict(full=True)["result"]["profit_per"])
+
+    def test_ccp_recipe_note(self):
+        from reactionding import engine, sde
+        rows = priced_rows(["simple"])
+        sde._loaded["data"] = {"reactions": {rows[0].name: {"in": {"Mat": 5, "Fuel": 0.5}}}}
+        try:
+            engine.compare_with_ccp(rows)
+        finally:
+            sde._loaded.clear()
+        self.assertEqual(rows[0].notes, [])  # 10 Mat / 2 runs = 5 per run
+        rows[0].result["input"][0]["quantity"] = 40
+        sde._loaded["data"] = {"reactions": {rows[0].name: {"in": {"Mat": 5, "Fuel": 0.5}}}}
+        try:
+            engine.compare_with_ccp(rows)
+        finally:
+            sde._loaded.clear()
+        self.assertIn("CCP recipe says 5", rows[0].notes[0])
 
 
 class VerifyTest(unittest.TestCase):
@@ -197,7 +205,7 @@ class VerifyTest(unittest.TestCase):
         for n, (item_id, name) in enumerate(g.items):
             bp = 1000 + n
             products[item_id] = (bp, 10)
-            materials[bp] = {1: 5}
+            materials[bp] = {"Mat": 5}
             times[bp] = 600
             entries.append(result(item_id, name, 0, runs=4, out_qty=40,
                                   inputs=[{"id": 1, "name": "Mat", "quantity": 20}]))
