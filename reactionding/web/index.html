@@ -79,6 +79,10 @@
   .field input, .field select { color: var(--text); font-size: 14px; }
   .field input[type=number] { text-align: right; }
   .settings-actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .storage { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+  .storage h4 { margin: 0 0 8px; font-size: 13px; }
+  .storage .db-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 12px; margin-top: 10px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; background: var(--panel2); border: 1px solid var(--line); }
 
   /* ---------- tables ---------- */
   .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
@@ -166,6 +170,26 @@
         <span class="muted small">Prices: Jita 4-4 live (ESI) – Buy = highest buy order, Sell = lowest sell order, Split = middle.
           Recipes: CCP SDE. Quantities and job cost of the reactions table: reactions.coalition.space.</span>
       </div>
+      <div class="storage">
+        <h4>Storage <span class="badge" id="storageKind"></span></h4>
+        <div class="small" id="storageInfo"></div>
+        <details id="dbBox"><summary class="small muted" style="cursor:pointer;margin-top:8px">MariaDB login</summary>
+          <form class="db-grid" id="dbForm" autocomplete="off">
+            <label class="field">Use MariaDB<select name="enabled"><option value="true">when found</option><option value="false">never (folder only)</option></select></label>
+            <label class="field">Host<input name="host"></label>
+            <label class="field">Port<input name="port" type="number" min="1" max="65535"></label>
+            <label class="field">User<input name="user"></label>
+            <label class="field">Password<input name="password" type="password" autocomplete="new-password"></label>
+            <label class="field">Database<input name="database"></label>
+          </form>
+          <div class="settings-actions">
+            <button type="button" class="btn ghost" id="dbTest">Test connection</button>
+            <button type="button" class="btn" id="dbSave">Save &amp; connect</button>
+            <span class="muted small">The login is stored in database.json in the data folder (password as plain text).
+              Empty password field = keep the saved password. The database and tables are created automatically.</span>
+          </div>
+        </details>
+      </div>
     </div>
   </details>
   <div id="view"></div>
@@ -241,6 +265,42 @@ function buildSettings() {
   };
   $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; updateSettingsSummary(); };
   updateSettingsSummary();
+}
+function showStorage(info) {
+  META.storage = info;
+  const db = info.kind === "mariadb";
+  $("storageKind").textContent = db ? "MariaDB" : "Folder";
+  $("storageInfo").innerHTML = (db ? `Data is saved in the MariaDB database <b>${esc(info.location)}</b> (${esc(info.version || "")}); `
+      + `a backup copy goes into <code>${esc(info.folder)}</code>.`
+    : `Data is saved in the folder <code>${esc(info.location)}</code>.`)
+    + (info.note ? `<br><span class="muted">${esc(info.note)}</span>` : "")
+    + (!info.driver ? `<br><span class="muted">MariaDB driver (pymysql) missing.</span>` : "");
+  const f = $("dbForm").elements, c = info.config;
+  f.enabled.value = String(c.enabled !== false);
+  for (const k of ["host", "port", "user", "database"]) f[k].value = c[k];
+  f.password.value = ""; f.password.placeholder = c.hasPassword ? "(saved)" : "(none)";
+}
+function dbConfig() {
+  const f = $("dbForm").elements;
+  return { enabled: f.enabled.value === "true", host: f.host.value.trim(), port: Number(f.port.value) || 3306,
+           user: f.user.value.trim(), password: f.password.value, database: f.database.value.trim() };
+}
+function buildStorage() {
+  showStorage(META.storage);
+  $("dbTest").onclick = async () => {
+    status("Testing database connection…", "busy");
+    try { const r = await api("/api/storage/test", { config: dbConfig() }); status(r.message, r.ok ? "" : "error"); }
+    catch (e) { status(e.message, "error"); }
+  };
+  $("dbSave").onclick = async () => {
+    status("Connecting…", "busy");
+    try {
+      const r = await api("/api/storage/save", { config: dbConfig() });
+      showStorage(r.storage);
+      status(r.storage.kind === "mariadb" ? "Now saving into MariaDB." : "Saving into the folder" + (r.storage.note ? " – " + r.storage.note : "."),
+             r.storage.kind !== "mariadb" && dbConfig().enabled ? "error" : "");
+    } catch (e) { status(e.message, "error"); }
+  };
 }
 function formSettings() {
   const out = {};
@@ -773,7 +833,7 @@ function totalRow(cols, prefix, totals, extra = {}) {
 (async () => {
   try {
     META = await api("/api/meta");
-    buildSettings(); buildNav(); render();
+    buildSettings(); buildStorage(); buildNav(); render();
     status("Ready.");
   } catch (e) { status(e.message, "error"); }
 })();

@@ -27,7 +27,7 @@ Benötigt nur **Python 3.9+**, keine weiteren Pakete. Für Windows gibt es alter
 
 `EVEReactionDing.exe` **doppelklicken**: Ein Konsolenfenster startet den lokalen Server, die
 Oberfläche öffnet sich im Browser (<http://127.0.0.1:8765/>). Fenster schließen = Programm beenden.
-Die Einstellungen landen als `settings.json` neben der .exe.
+Wo die Daten landen, steht unter [Speicherort](#speicherort-mariadb-oder-ordner).
 
 Alle Befehle gehen auch in der Eingabeaufforderung, z.B. `EVEReactionDing.exe calc --sort profit --top 10`
 oder `EVEReactionDing.exe check-sheet Operation_MoonShine_GT.xlsx --fixes`.
@@ -35,7 +35,7 @@ oder `EVEReactionDing.exe check-sheet Operation_MoonShine_GT.xlsx --fixes`.
 Die .exe ist nicht signiert. Windows SmartScreen meldet deshalb beim ersten Start „Der Computer wurde
 durch Windows geschützt“. Mit **Weitere Informationen → Trotzdem ausführen** startet sie.
 
-Selbst bauen (unter Windows): `pip install pyinstaller openpyxl` und `python packaging/build_exe.py`.
+Selbst bauen (unter Windows): `pip install pyinstaller openpyxl pymysql` und `python packaging/build_exe.py`.
 Der GitHub-Workflow `.github/workflows/build-exe.yml` baut sie bei jeder Änderung auf einem
 Windows-Server und hängt sie als Artefakt an.
 
@@ -89,7 +89,40 @@ als Spalten nebeneinander**. Die Einstellungen sind eingeklappt, oben steht eine
    - **Overview:** pro Monat erledigte Jobs, Übertrag, Ausgaben, produzierter Wert und Gewinn
      (Buy/Split/Sell).
 
-   Alles wird in `campaign.json` neben der .exe gespeichert.
+   Alles wird automatisch gespeichert (siehe [Speicherort](#speicherort-mariadb-oder-ordner)).
+
+## Speicherort: MariaDB oder Ordner
+
+Beim Start sucht das Programm auf **diesem PC** nach einer MariaDB (oder MySQL) auf den Ports
+3306, 3307 und 3308:
+
+- **MariaDB gefunden und Login klappt** → Einstellungen, Monatsplaner und einmaliger Plan werden
+  in der Datenbank `eve_reaction_ding` gespeichert. Datenbank und Tabellen (`documents`, `history`
+  mit den letzten 50 Ständen des Monatsplaners) legt das Programm selbst an. Zusätzlich liegt
+  immer eine Sicherungskopie im Datenordner.
+- **Keine MariaDB gefunden** → alles kommt in den Ordner `EVEReactionDing-data` neben der .exe
+  (bzw. `data/` beim Start aus dem Quellcode).
+
+Ohne gespeicherten Login probiert das Programm `root` ohne Passwort. Hat dein `root` ein Passwort
+(beim Windows-Installer von MariaDB üblich), steht oben in den Settings unter **Storage**
+„MariaDB found …, but: login refused“. Dann unter **MariaDB login** Benutzer und Passwort eintragen,
+**Test connection** und **Save & connect**. Der Login steht dann in
+`EVEReactionDing-data/database.json`. Das Passwort ist dort **im Klartext** gespeichert. Am besten
+nimmst du daher einen eigenen Benutzer statt root:
+
+```sql
+CREATE USER 'eve'@'localhost' IDENTIFIED BY 'dein-passwort';
+GRANT ALL PRIVILEGES ON eve_reaction_ding.* TO 'eve'@'localhost';
+```
+
+Ist die Datenbank später einmal nicht erreichbar, speichert das Programm in den Ordner und zeigt das
+unter Storage an. „Use MariaDB: never“ schaltet die Datenbank ganz ab.
+
+Alte Dateien (`settings.json`, `campaign.json`, `planner.json` neben der .exe) werden beim ersten
+Start automatisch in den Datenordner bzw. in die Datenbank übernommen.
+
+In der Kommandozeile gibt es dafür: `reactionding storage` (zeigt den Speicherort),
+`reactionding storage --set user=eve password=geheim port=3306`, `--off` und `--on`.
 
 ## Kommandozeile
 

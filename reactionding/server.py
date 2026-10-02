@@ -6,20 +6,16 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
-from pathlib import Path
-
-from . import esi, production, sde, tracker
+from . import esi, production, sde, storage as storage_mod, tracker
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS
 from .client import ApiError, Client
 from .engine import _finite, calculate, warnings
 
 
-def make_handler(settings_path):
+def make_handler(store):
     client = Client()
     lock = threading.Lock()
-    planner_path = Path(settings_path).with_name("planner.json")
-    campaign_path = Path(settings_path).with_name("campaign.json")
     cache = {}
 
     def recipes():
@@ -32,21 +28,23 @@ def make_handler(settings_path):
                 cache["components"] = production.load_components(cache["recipes"], data)
             return cache["recipes"], cache["components"]
 
-    def load_plan():
+    def load_settings():
         try:
-            return json.loads(planner_path.read_text("utf-8"))
-        except (OSError, ValueError):
-            return {"runsPerJob": 544, "jobs": {}, "components": {}, "stock": ""}
+            return settings_mod.normalize(store.get("settings") or {})
+        except settings_mod.SettingsError:
+            return settings_mod.normalize()
+
+    def load_plan():
+        plan = store.get("planner")
+        return plan if isinstance(plan, dict) else {"runsPerJob": 544, "jobs": {}, "components": {}, "stock": ""}
 
     def load_campaign():
-        try:
-            return json.loads(campaign_path.read_text("utf-8"))
-        except (OSError, ValueError):
-            return tracker.new_campaign()
+        campaign = store.get("campaign")
+        return campaign if isinstance(campaign, dict) and campaign.get("months") else tracker.new_campaign()
 
     def save_campaign(campaign):
         with lock:
-            campaign_path.write_text(json.dumps(campaign, indent=1), encoding="utf-8")
+            store.put("campaign", campaign)
 
     def campaign_from(body):
         campaign = body.get("campaign")
@@ -92,7 +90,8 @@ def make_handler(settings_path):
                 return self._send(200, html, "text/html; charset=utf-8")
             if self.path == "/api/meta":
                 return self._send(200, {
-                    "settings": settings_mod.load(settings_path),
+                    "settings": load_settings(),
+                    "storage": store.status(),
                     "defaults": settings_mod.DEFAULTS,
                     "schema": {k: {"kind": v[0], "rule": v[1], "label": v[2]}
                                for k, v in settings_mod.SCHEMA.items()},
@@ -121,8 +120,26 @@ def make_handler(settings_path):
                 if self.path == "/api/settings":
                     values = settings_mod.normalize(body.get("settings"))
                     with lock:
-                        settings_mod.save(settings_path, values)
+                        store.put("settings", values)
                     return self._send(200, {"settings": values})
+                if self.path in ("/api/storage/test", "/api/storage/save"):
+                    cfg = {**storage_mod.DEFAULT_DB, **(store.status()["config"])}
+                    cfg.pop("hasPassword", None)
+                    given = body.get("config") or {}
+                    cfg.update({k: v for k, v in given.items() if k in storage_mod.DEFAULT_DB})
+                    if not given.get("password"):  # empty field = keep the saved password
+                        cfg["password"] = (storage_mod.load_db_config(store.folder) or {}).get("password", "")
+                    cfg["port"] = int(cfg["port"])
+                    if self.path == "/api/storage/test":
+                        if not cfg.get("enabled", True):
+                            return self._send(200, {"ok": True, "message": "MariaDB switched off"})
+                        found, reason = storage_mod.try_mariadb(cfg)
+                        return self._send(200, {"ok": found is not None,
+                                                "message": reason or "Connection works: "
+                                                + found.describe()["location"]})
+                    with lock:
+                        storage_mod.save_db_config(store.folder, cfg)
+                        return self._send(200, {"storage": store.reconnect()})
                 if self.path == "/api/calc":
                     values = settings_mod.normalize(body.get("settings"))
                     values, notes = esi.check_system(values)
@@ -170,7 +187,7 @@ def make_handler(settings_path):
                     state = body.get("plan") or {}
                     if body.get("save"):
                         with lock:
-                            planner_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+                            store.put("planner", state)
                     rec, comps = recipes()
                     return self._send(200, {"notes": notes, "sde": cache.get("sde"),
                                             "plan": production.plan(rec, values, state, components=comps)})
@@ -185,10 +202,23 @@ def make_handler(settings_path):
     return Handler
 
 
-def serve(host="127.0.0.1", port=8765, settings_path="settings.json", open_browser=False):
+def serve(host="127.0.0.1", port=8765, store=None, open_browser=False):
     url = f"http://{host}:{port}/"
+    if storage_mod.port_open(host, port):
+        # Most likely the program is already running (second double-click).
+        print(f"Port {port} is in use, opening {url}")
+        if open_browser:
+            webbrowser.open(url)
+        return
+    store = store or storage_mod.Storage()
+    info = store.status()
+    print(f"Data: {'MariaDB ' + info['location'] if info['kind'] == 'mariadb' else 'folder ' + info['location']}")
+    if info["note"]:
+        print(f"      ({info['note']})")
+    for old in store.migrated:
+        print(f"      copied {old} into the data folder")
     try:
-        server = ThreadingHTTPServer((host, port), make_handler(settings_path))
+        server = ThreadingHTTPServer((host, port), make_handler(store))
     except OSError:
         # Port taken - most likely the program is already running (second double-click).
         print(f"Port {port} is in use, opening {url}")

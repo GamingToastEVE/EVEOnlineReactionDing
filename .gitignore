@@ -5,3 +5,5 @@ build/
 dist/
 planner.json
 campaign.json
+data/
+EVEReactionDing-data/

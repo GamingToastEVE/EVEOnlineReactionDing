@@ -1,6 +1,6 @@
 """Builds dist/EVEReactionDing.exe with PyInstaller. Run on Windows:
 
-    pip install pyinstaller openpyxl
+    pip install pyinstaller openpyxl pymysql
     python packaging/build_exe.py
 """
 
@@ -22,6 +22,7 @@ PyInstaller.__main__.run([
     "--paths", str(ROOT),
     "--collect-submodules", "reactionding",
     "--hidden-import", "openpyxl",
+    "--hidden-import", "pymysql",
     "--add-data", f"{ROOT / 'reactionding' / 'web'}{os.pathsep}reactionding/web",
     "--add-data", f"{ROOT / 'reactionding' / 'data'}{os.pathsep}reactionding/data",
     "--distpath", str(ROOT / "dist"),

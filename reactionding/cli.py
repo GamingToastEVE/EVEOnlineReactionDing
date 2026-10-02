@@ -8,11 +8,32 @@ from pathlib import Path
 
 from . import esi
 from . import settings as settings_mod
+from . import storage as storage_mod
 from .catalog import CALCULATORS, GROUPS, find_items, groups_for
 from .client import ApiError, Client
 from .engine import MODES, calculate, outputs, warnings
 
-SETTINGS_FILE = "settings.json"
+_STORE = {}
+
+
+def get_store():
+    if "store" not in _STORE:
+        _STORE["store"] = storage_mod.Storage()
+    return _STORE["store"]
+
+
+def load_settings(path):
+    """Settings from a given file, or from the data storage (MariaDB or data folder)."""
+    if path:
+        return settings_mod.load(path)
+    return settings_mod.normalize(get_store().get("settings") or {})
+
+
+def save_settings(path, values):
+    if path:
+        settings_mod.save(path, values)
+    else:
+        get_store().put("settings", values)
 
 
 def fmt_isk(value):
@@ -32,15 +53,15 @@ def fmt_pct(value):
 
 
 def add_settings_args(parser):
-    group = parser.add_argument_group("settings (override settings.json)")
+    group = parser.add_argument_group("settings (override the saved settings)")
     for key, (kind, rule, label) in settings_mod.SCHEMA.items():
         extra = f" [{'|'.join(map(str, rule))}]" if kind in ("enum", "int_enum") else ""
         group.add_argument(f"--{key}", dest=key, metavar="X", help=(label + extra).replace("%", "%%"))
-    parser.add_argument("--settings", default=SETTINGS_FILE, help="settings file (default: settings.json)")
+    parser.add_argument("--settings", help="settings file (default: data storage)")
 
 
 def resolve_settings(args):
-    base = settings_mod.load(args.settings)
+    base = load_settings(args.settings)
     overrides = {k: getattr(args, k) for k in settings_mod.SCHEMA if getattr(args, k, None) is not None}
     values = settings_mod.normalize(overrides, base)
     values, notes = esi.check_system(values)
@@ -217,7 +238,10 @@ def cmd_plan(args):
     from . import production, sde
 
     settings = resolve_settings(args)
-    state = json.loads(Path(args.plan).read_text("utf-8")) if Path(args.plan).exists() else {}
+    if args.plan:
+        state = json.loads(Path(args.plan).read_text("utf-8")) if Path(args.plan).exists() else {}
+    else:
+        state = get_store().get("planner") or {}
     if args.stock:
         state["stock"] = Path(args.stock).read_text("utf-8")
     for spec in args.job or []:
@@ -230,7 +254,10 @@ def cmd_plan(args):
         state["runsPerJob"] = args.runs
     result = production.plan(sde.production_recipes(), settings, state)
     if args.save:
-        Path(args.plan).write_text(json.dumps(state, indent=2), encoding="utf-8")
+        if args.plan:
+            Path(args.plan).write_text(json.dumps(state, indent=2), encoding="utf-8")
+        else:
+            get_store().put("planner", state)
     for name in result["unknown"]:
         print(f"Warning: unknown item '{name}'", file=sys.stderr)
     print(f"Production plan ({result['runsPerJob']} runs per job, reaction ME "
@@ -267,7 +294,7 @@ def cmd_list(args):
 
 
 def cmd_settings(args):
-    current = settings_mod.load(args.settings)
+    current = load_settings(args.settings)
     if args.set:
         changes = {}
         for pair in args.set:
@@ -277,12 +304,12 @@ def cmd_settings(args):
             key, value = pair.split("=", 1)
             changes[key.strip()] = value.strip()
         current = settings_mod.normalize(changes, current)
-        settings_mod.save(args.settings, current)
-        print(f"Saved {args.settings}")
+        save_settings(args.settings, current)
+        print(f"Saved to {args.settings or 'data storage'}")
     if args.reset:
         current = settings_mod.normalize()
-        settings_mod.save(args.settings, current)
-        print(f"Reset {args.settings}")
+        save_settings(args.settings, current)
+        print(f"Reset {args.settings or 'data storage'}")
     for key, (_, _, label) in settings_mod.SCHEMA.items():
         print(f"  {key:<13} {current[key]!s:<18} {label}")
     return 0
@@ -351,10 +378,32 @@ def cmd_check_sheet(args):
     return 1 if report["errors"] or any(report["sheets"].values()) else 0
 
 
+def cmd_storage(args):
+    store = get_store()
+    if args.set or args.off or args.on:
+        cfg = storage_mod.load_db_config(store.folder) or dict(storage_mod.DEFAULT_DB)
+        for pair in args.set or []:
+            key, _, value = pair.partition("=")
+            if key not in storage_mod.DEFAULT_DB or key == "enabled":
+                print(f"Unknown key '{key}' (host, port, user, password, database)", file=sys.stderr)
+                return 2
+            cfg[key] = value
+        if args.off or args.on:
+            cfg["enabled"] = bool(args.on)
+        storage_mod.save_db_config(store.folder, cfg)
+        store.reconnect()
+    info = store.status()
+    print(f"Storage: {info['kind']}  {info['location']}" + (f"  (MariaDB {info['version']})" if info.get("version") else ""))
+    if info["note"]:
+        print(f"  note: {info['note']}")
+    print(f"  data folder: {info['folder']}")
+    return 0
+
+
 def cmd_serve(args):
     from .server import serve
 
-    serve(args.host, args.port, args.settings, open_browser=args.open)
+    serve(args.host, args.port, open_browser=args.open)
     return 0
 
 
@@ -392,7 +441,7 @@ def build_parser():
     st = sub.add_parser("settings", help="show or change saved settings")
     st.add_argument("--set", nargs="+", metavar="KEY=VALUE")
     st.add_argument("--reset", action="store_true")
-    st.add_argument("--settings", default=SETTINGS_FILE)
+    st.add_argument("--settings", help="settings file (default: data storage)")
     st.set_defaults(func=cmd_settings)
 
     ver = sub.add_parser("verify", help="check every reaction: API vs calculator page vs EVE SDE")
@@ -417,7 +466,7 @@ def build_parser():
     ch.set_defaults(func=cmd_chain)
 
     pl = sub.add_parser("plan", help="production planner like sheet 8.1")
-    pl.add_argument("--plan", default="planner.json", help="plan file (default: planner.json)")
+    pl.add_argument("--plan", help="plan file (default: data storage)")
     pl.add_argument("--job", action="append", metavar="REACTION=JOBS", help="e.g. 'Fullerides=2'")
     pl.add_argument("--component", action="append", metavar="COMPONENT=UNITS",
                     help="e.g. 'Antimatter Reactor Unit=1000'")
@@ -427,10 +476,15 @@ def build_parser():
     add_settings_args(pl)
     pl.set_defaults(func=cmd_plan)
 
+    sto = sub.add_parser("storage", help="show where data is stored, set the MariaDB login")
+    sto.add_argument("--set", nargs="+", metavar="KEY=VALUE", help="e.g. user=eve password=secret")
+    sto.add_argument("--off", action="store_true", help="never use MariaDB, only the data folder")
+    sto.add_argument("--on", action="store_true", help="use MariaDB again when it is found")
+    sto.set_defaults(func=cmd_storage)
+
     srv = sub.add_parser("serve", help="start the web interface")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8765)
-    srv.add_argument("--settings", default=SETTINGS_FILE)
     srv.add_argument("--open", action="store_true", help="open the interface in the web browser")
     srv.set_defaults(func=cmd_serve)
     return p
