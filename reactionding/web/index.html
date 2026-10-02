@@ -529,6 +529,9 @@ async function renderPlanner() {
       <span class="grow"></span>
       <label class="field inline">Runs per job <input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
       <label class="field inline">Reaction slots <input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}" title="0 = no limit"></label>
+      <button class="btn small ghost" id="exportPlan" title="Save the whole plan (all months) as a file">Export plan</button>
+      <button class="btn small ghost" id="importPlan" title="Load a plan file (replaces the current plan)">Import plan</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>`;
   if (state.showOverview) {
     $("view").innerHTML = html + overviewHtml();
@@ -686,6 +689,29 @@ function bindPlanner(items) {
     state.showOverview = false; state.monthIndex = Number(b.dataset.month); state.monthPlan = null; calcMonth(undefined, {}, false);
   };
   for (const id of ["runsPerJob", "slots"]) if ($(id)) $(id).onchange = () => calcMonth();
+  $("exportPlan").onclick = () => {
+    readMonth();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(state.campaign, null, 1)], { type: "application/json" }));
+    a.download = `campaign-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("importPlan").onclick = () => $("importFile").click();
+  $("importFile").onchange = async () => {
+    const file = $("importFile").files[0];
+    if (!file) return;
+    try {
+      const campaign = JSON.parse(await file.text());
+      if (!campaign || !Array.isArray(campaign.months) || !campaign.months.length) throw new Error("not a plan file");
+      if (!confirm(`Load ${file.name}? It replaces the current plan (${campaign.months.length} months).`)) return;
+      state.campaign = campaign; state.showOverview = false;
+      state.monthIndex = campaign.months.findIndex(m => !m.closed);
+      if (state.monthIndex < 0) state.monthIndex = campaign.months.length - 1;
+      await calcMonth(undefined, {}, false);
+      status(`Plan ${file.name} loaded and saved.`);
+    } catch (e) { status(`Import failed: ${e.message}`, "error"); }
+  };
   if (state.showOverview) return;
   if ($("addBtn")) {
     const valid = new Map(items.map(([n, key, k]) => [n.toLowerCase(), [n, key, k]]));

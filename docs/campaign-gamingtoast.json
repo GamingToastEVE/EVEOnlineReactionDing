@@ -1,0 +1,53 @@
+{
+ "runsPerJob": 544,
+ "slots": 0,
+ "months": [
+  {
+   "id": "2026-09",
+   "closed": true,
+   "orders": {
+    "jobs": {
+     "Crystalline Carbonide": 2,
+     "Fernite Carbide": 2,
+     "Fullerides": 2,
+     "Phenolic Composites": 2,
+     "Pressurized Oxidizers": 2,
+     "Reinforced Carbon Fiber": 2,
+     "Titanium Carbide": 2,
+     "Tungsten Carbide": 2
+    },
+    "components": {}
+   },
+   "stock": "",
+   "carry": [],
+   "track": {},
+   "bought": {},
+   "checks": {},
+   "summary": {
+    "note": "imported from sheet 8.1 (Prod M-1): simple reactions finished"
+   }
+  },
+  {
+   "id": "2026-10",
+   "closed": false,
+   "orders": {
+    "jobs": {
+     "Crystalline Carbonide": 2,
+     "Fernite Carbide": 2,
+     "Fullerides": 2,
+     "Phenolic Composites": 2,
+     "Pressurized Oxidizers": 2,
+     "Reinforced Carbon Fiber": 2,
+     "Titanium Carbide": 2,
+     "Tungsten Carbide": 2
+    },
+    "components": {}
+   },
+   "stock": "Caesarium Cadmide\t108800\nCarbon Fiber\t217600\nCarbon Polymers\t435200\nCeramic Powder\t108800\nCrystallite Alloy\t108800\nFernite Alloy\t108800\nOxy-Organic Solvents\t5440\nPlatinum Technite\t108800\nRolled Tungsten Alloy\t108800\nSilicon Diborite\t217600\nSulfuric Acid\t326400\nThermosetting Polymer\t217600\nTitanium Chromide\t108800\nVanadium Hafnite\t108800",
+   "carry": [],
+   "track": {},
+   "bought": {},
+   "checks": {}
+  }
+ ]
+}
