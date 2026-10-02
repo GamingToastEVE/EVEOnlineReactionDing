@@ -65,7 +65,23 @@ python -m reactionding verify                        # alle Reactions auf Korrek
 ```
 
 Jede Einstellung lässt sich auch einmalig per Option überschreiben, z. B.
-`--space wormhole --costIndex 4.5 --input sell`. `python -m reactionding calc --help` zeigt alle.
+`--space wormhole --costIndex 4.5 --input sell`.
+
+### Jita Buy / Split / Sell
+
+Für Kosten (In Method) und Erlös (Out Method) gibt es jeweils **buy**, **split** und **sell**:
+
+| | Inputs (Kosten) | Output (Erlös) |
+|---|---|---|
+| **buy** | eigene Buy-Order zum höchsten Buy-Preis, + Broker Fee | Verkauf an die höchste Buy-Order, − Sales Tax |
+| **split** | Mitte von Buy und Sell (Preis und Gebühren) | Mitte von Buy und Sell (Preis und Gebühren) |
+| **sell** | Sofortkauf zum niedrigsten Sell-Preis | eigene Sell-Order zum niedrigsten Sell-Preis, − Broker Fee − Sales Tax |
+
+Der Calculator selbst kennt nur buy und sell. Das Programm fragt jede Reaction deshalb zweimal ab
+(Inputs Buy/Output Sell und Inputs Sell/Output Buy) und setzt daraus alle 9 Kombinationen zusammen.
+Die Zusammensetzung wurde für alle 15 Gruppen gegen die direkten Calculator-Ergebnisse geprüft
+(identisch). In der Oberfläche lässt sich deshalb ohne Neuladen umschalten, und die Detailansicht
+zeigt Stückpreise sowie eine 3×3-Profit-Matrix. Auf der Kommandozeile zeigt `show` beides. `python -m reactionding calc --help` zeigt alle.
 
 Gültige Märkte sind **Jita, Amarr, Perimeter** (andere Namen bewertet die API stillschweigend mit
 0 ISK, daher lehnt das Programm sie ab). Den System-Namen prüft das Programm über die offizielle

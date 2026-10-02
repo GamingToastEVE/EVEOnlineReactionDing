@@ -54,6 +54,7 @@
   tr.row:hover { filter: brightness(1.25); }
   tr.row.err td { color: var(--bad); }
   td.pos { color: #6fd08e; } td.neg { color: #f08a80; }
+  td.chosen { outline: 1px solid var(--accent); outline-offset: -1px; font-weight: 600; }
   tr.detail td { background: var(--panel); text-align: left; white-space: normal; padding: 10px 14px; }
   .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
   .detail-grid table th { cursor: default; }
@@ -83,7 +84,9 @@ const LABELS = {
   duration: "Build Time (min)", cycles: "Cycles", costIndex: "Cost Index % (WH)",
   prismaticite: "Prismaticite %",
 };
+const METHOD_TEXT = { buy: "Buy", split: "Split (middle)", sell: "Sell" };
 const OPTION_TEXT = { rigs: { 0: "No Rig", 1: "Tech 1 Rig", 2: "Tech 2 Rig" },
+                      input: METHOD_TEXT, output: METHOD_TEXT,
                       facility: { medium: "medium Refinery", large: "large Refinery" },
                       skill: { 1: "Level 1", 2: "Level 2", 3: "Level 3", 4: "Level 4", 5: "Level 5" } };
 const COLS = [
@@ -137,6 +140,7 @@ function buildForm() {
   $("csv").onclick = exportCsv;
   updateCostIndex();
   form.elements.space.addEventListener("change", updateCostIndex);
+  for (const k of ["input", "output"]) form.elements[k].addEventListener("change", () => { if (ROWS.length) render(); });
 }
 
 function updateCostIndex() {
@@ -196,6 +200,18 @@ async function run() {
   }
 }
 
+// Buy / Split / Sell: every row carries all 9 combinations, so switching needs no new request.
+function applyView() {
+  const f = $("settings").elements, key = `${f.input.value}|${f.output.value}`;
+  for (const r of ROWS) {
+    const v = r.views && r.views[key];
+    if (!v) continue;
+    Object.assign(r, { inputs: v.inputs, taxes: v.taxes, output: v.output, profit: v.profit,
+                       profitPercent: v.profitPercent, profitPerHour: v.profitPerHour,
+                       inputMethod: f.input.value, outputMethod: f.output.value });
+  }
+}
+
 function sortRows(rows, id) {
   const st = sortState[id];
   if (!st) return rows;
@@ -223,6 +239,7 @@ function tableHtml(id, rows, showGroup) {
 }
 
 function render() {
+  applyView();
   const content = $("content");
   if (!ROWS.length) { content.innerHTML = '<div class="empty">Calculating…</div>'; return; }
   if (TAB === "ranking") {
@@ -260,29 +277,41 @@ $("content").addEventListener("click", e => {
 });
 
 function detailHtml(row) {
-  const r = row.result, t = r.taxes || {}, m = t.market || {}, c = r.cycle_data || {};
-  const inputs = (r.input || []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td><td>${isk(x.price)}</td><td>${isk(x.market_tax)}</td></tr>`).join("");
+  const r = row.result, t = r.taxes || {}, c = r.cycle_data || {}, f = $("settings").elements;
+  const im = f.input.value, om = f.output.value, v = row.views[`${im}|${om}`], p = row.prices || {};
+  const unit = x => x == null ? "–" : x.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  const priceCells = (name, chosen) => ["buy", "split", "sell"].map(m =>
+    `<td class="${m === chosen ? "chosen" : ""}">${unit((p[name] || {})[m])}</td>`).join("");
+  const inputs = (r.input || []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td>${priceCells(x.name, im)}
+      <td>${isk(x.quantity * ((p[x.name] || {})[im] || 0))}</td></tr>`).join("");
+  const outs = Array.isArray(r.output) ? r.output : [r.output || {}];
   const left = (Array.isArray(r.remaining) ? r.remaining : []).map(x => `<tr><td>${esc(x.name)}</td><td>${isk(x.quantity)}</td><td>${isk(x.price)}</td></tr>`).join("");
-  const o = r.output || {};
   const tax = [["System cost", t.system], ["Facility", t.facility], ["SCC", t.scc],
-               ["Broker (inputs)", (m.inputs || {}).brokers], ["Broker (output)", (m.output || {}).brokers],
-               ["Sales tax", (m.output || {}).sales], ["Total", r.taxes_total]]
-    .map(([k, v]) => `<tr><td>${k}</td><td>${isk(v)}</td></tr>`).join("");
+               [`Market fees inputs (${im})`, v.inputFees], [`Market fees output (${om})`, v.outputFees], ["Total", v.taxes]]
+    .map(([k, val]) => `<tr><td>${k}</td><td>${isk(val)}</td></tr>`).join("");
+  const modes = ["buy", "split", "sell"];
+  const matrix = `<table><tr><th>Inputs ↓ / Output →</th>${modes.map(m => `<th>${METHOD_TEXT[m]}</th>`).join("")}</tr>` +
+    modes.map(i => `<tr><td>${METHOD_TEXT[i]}</td>` + modes.map(o2 => {
+      const val = row.views[`${i}|${o2}`].profit;
+      return `<td class="${val >= 0 ? "pos" : "neg"} ${i === im && o2 === om ? "chosen" : ""}">${isk(val)}</td>`;
+    }).join("") + "</tr>").join("") + "</table>";
+  const inM = esc(f.inMarket.value), outM = esc(f.outMarket.value);
   return `<div class="detail-grid">
-    <div><h4>Inputs</h4><table><tr><th>Item</th><th>Quantity</th><th>Price</th><th>Market tax</th></tr>${inputs}
-      <tr><td><b>Output: ${esc(o.name || "")}</b></td><td>${isk(o.quantity)}</td><td>${isk(o.price)}</td><td></td></tr></table>
+    <div><h4>Inputs <span class="tag">price per unit, ${inM}</span></h4><table><tr><th>Item</th><th>Quantity</th><th>Buy</th><th>Split</th><th>Sell</th><th>Cost (${im})</th></tr>${inputs}
+      ${outs.map(o => `<tr><td><b>Output: ${esc(o.name || "")}</b> <span class="tag">${outM}</span></td><td>${isk(o.quantity)}</td>${priceCells(o.name, om)}<td>${isk(o.quantity * ((p[o.name] || {})[om] || 0))}</td></tr>`).join("")}</table>
       ${left ? `<h4 style="margin-top:10px">Left over</h4><table><tr><th>Item</th><th>Quantity</th><th>Value</th></tr>${left}</table>` : ""}</div>
-    <div><h4>Taxes</h4><table>${tax}</table>
+    <div><h4>Profit by price method</h4>${matrix}
+      <h4 style="margin-top:10px">Taxes</h4><table>${tax}</table>
       <p class="tag">Runs: ${isk(r.runs)}${c.cycle_time ? ` · cycle time ${isk(c.cycle_time)} s` : ""} · window ${isk(c.total_time)} min · type id ${row.id} · source ${row.source}</p></div>
   </div>`;
 }
 
 function exportCsv() {
   if (!ROWS.length) return status("Nothing to export – calculate first.", true);
-  const head = ["Calculator", "Group", "Reaction", "Type ID", "Source", "Inputs", "Tax", "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"];
+  const head = ["Calculator", "Group", "Reaction", "Type ID", "Source", "Input method", "Output method", "Inputs", "Tax", "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"];
   const q = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   const lines = [head.join(",")].concat(ROWS.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id, r.source,
-    r.inputs, r.taxes, r.output, r.profit, r.profitPercent, r.profitPerHour, r.runs, r.error].map(q).join(",")));
+    r.inputMethod, r.outputMethod, r.inputs, r.taxes, r.output, r.profit, r.profitPercent, r.profitPerHour, r.runs, r.error].map(q).join(",")));
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
   a.download = `reactions-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;

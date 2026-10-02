@@ -23,12 +23,15 @@ def make_handler(settings_path):
 
         def _send(self, status, body, content_type="application/json; charset=utf-8"):
             data = body if isinstance(body, bytes) else json.dumps(_finite(body)).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # browser tab closed or reloaded while we were calculating
 
         def _body(self):
             length = int(self.headers.get("Content-Length") or 0)
@@ -77,6 +80,8 @@ def make_handler(settings_path):
                 return self._send(400, {"error": str(exc)})
             except ApiError as exc:
                 return self._send(502, {"error": str(exc)})
+            except Exception as exc:  # never leave the browser waiting without an answer
+                return self._send(500, {"error": f"Internal error: {exc!r}"})
             self._send(404, {"error": "not found"})
 
     return Handler

@@ -183,6 +183,9 @@ def check_sde(pages, sde):
 
 def run_all(settings, client=None, workers=4, skip_sde=False, progress=None):
     client = client or Client()
+    if "split" in (settings["input"], settings["output"]):
+        # the calculator only knows buy/sell; split is derived from both by this program
+        settings = dict(settings, input="buy", output="sell")
     pages = {}
     for calculator in ("hybrid", "composite", "biochemical"):
         try:

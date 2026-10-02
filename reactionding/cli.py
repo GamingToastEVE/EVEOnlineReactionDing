@@ -9,13 +9,17 @@ from . import esi
 from . import settings as settings_mod
 from .catalog import CALCULATORS, GROUPS, find_items, groups_for
 from .client import ApiError, Client
-from .engine import calculate, warnings
+from .engine import MODES, calculate, outputs, warnings
 
 SETTINGS_FILE = "settings.json"
 
 
 def fmt_isk(value):
     return "-" if value is None else f"{value:,.0f}"
+
+
+def fmt_unit(value):
+    return "-" if value is None else f"{value:,.2f}"
 
 
 def fmt_pct(value):
@@ -98,11 +102,12 @@ def cmd_calc(args):
         print()
     elif args.format == "csv":
         writer = csv.writer(sys.stdout)
-        writer.writerow(["Calculator", "Group", "Reaction", "Type ID", "Source", "Inputs", "Tax",
+        writer.writerow(["Calculator", "Group", "Reaction", "Type ID", "Source", "Input method",
+                         "Output method", "Inputs", "Tax",
                          "Output", "Profit", "% prof.", "Profit/h", "Runs", "Error"])
         for r in rows:
             writer.writerow([CALCULATORS[r.group.calculator], r.group.title, r.name, r.item_id,
-                             r.source, r.inputs_total, r.taxes_total, r.output_total, r.profit,
+                             r.source, r.modes[0], r.modes[1], r.inputs_total, r.taxes_total, r.output_total, r.profit,
                              r.profit_percent, r.profit_per_hour, r.runs, r.error])
     else:
         print_settings(settings)
@@ -112,7 +117,7 @@ def cmd_calc(args):
 
 def print_settings(settings):
     s = settings
-    print(f"In: {s['input']} ({s['inMarket']})  Out: {s['output']} ({s['outMarket']})  "
+    print(f"In: {s['inMarket']} {s['input']}  Out: {s['outMarket']} {s['output']}  "
           f"B: {s['brokers']:g} | S: {s['sales']:g}  Reactions {s['skill']}  {s['facility']} refinery  "
           f"rigs T{s['rigs']}  {s['space']}  {s['system']}  IndyTax {s['tax']:g}  SCC {s['scc']:g}  "
           f"{s['duration']} min  cycles {s['cycles']}  prismaticite {s['prismaticite']:g}"
@@ -142,21 +147,28 @@ def cmd_show(args):
             print(f"ERROR: {row.error}")
             continue
         res = row.result
-        print(f"{'Input':<36} {'Quantity':>14} {'Price':>18} {'Market tax':>14}")
+        prices = row.unit_prices()
+        print(f"{'Input':<34} {'Quantity':>12} {'Jita Buy':>12} {'Split':>12} {'Jita Sell':>12}")
         for x in res.get("input", []):
-            print(f"{x['name']:<36} {x['quantity']:>14,.0f} {fmt_isk(x.get('price')):>18} "
-                  f"{fmt_isk(x.get('market_tax')):>14}")
-        out = res.get("output", {})
-        print(f"{'Output: ' + out.get('name', ''):<36} {out.get('quantity', 0):>14,.0f} "
-              f"{fmt_isk(out.get('price')):>18}")
+            p = prices.get(x["name"], {})
+            print(f"{x['name']:<34} {x['quantity']:>12,.0f} {fmt_unit(p.get('buy')):>12} "
+                  f"{fmt_unit(p.get('split')):>12} {fmt_unit(p.get('sell')):>12}")
+        for out in outputs(res):
+            p = prices.get(out.get("name"), {})
+            print(f"{'Output: ' + out.get('name', ''):<34} {out.get('quantity', 0):>12,.0f} "
+                  f"{fmt_unit(p.get('buy')):>12} {fmt_unit(p.get('split')):>12} {fmt_unit(p.get('sell')):>12}")
+        print("(prices per unit)")
         for x in res.get("remaining") or []:
             print(f"  left over: {x['name']} x{x['quantity']:,} ({fmt_isk(x.get('price'))} ISK)")
-        t = res.get("taxes", {})
-        m = t.get("market", {})
-        print(f"\nTaxes: system {fmt_isk(t.get('system'))}  facility {fmt_isk(t.get('facility'))}  "
-              f"SCC {fmt_isk(t.get('scc'))}  brokers in {fmt_isk(m.get('inputs', {}).get('brokers'))}  "
-              f"brokers out {fmt_isk(m.get('output', {}).get('brokers'))}  "
-              f"sales {fmt_isk(m.get('output', {}).get('sales'))}  = {fmt_isk(row.taxes_total)}")
+        print(f"\nProfit by price method (rows: inputs, columns: output)")
+        print(f"{'':<12}" + "".join(f"{'out ' + m:>18}" for m in MODES))
+        for i in MODES:
+            print(f"{'in ' + i:<12}" + "".join(f"{fmt_isk(row.view(i, o)['profit']):>18}" for o in MODES))
+        v = row.view()
+        print(f"\nSelected: inputs {row.modes[0]}, output {row.modes[1]}")
+        print(f"Taxes: install (system+facility+SCC) {fmt_isk(v['install'])}  "
+              f"market inputs {fmt_isk(v['inputFees'])}  market output {fmt_isk(v['outputFees'])}  "
+              f"= {fmt_isk(v['taxes'])}")
         cyc = res.get("cycle_data", {})
         cycle = f"  cycle time {cyc['cycle_time']:,} s" if cyc.get("cycle_time") else ""
         print(f"Runs: {row.runs}{cycle}  window {cyc.get('total_time')} min")
