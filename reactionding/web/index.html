@@ -7,86 +7,159 @@
 <link rel="icon" href="data:,">
 <style>
   :root {
-    --bg: #0f1216; --panel: #171c22; --panel2: #1e252d; --line: #2b343e;
-    --text: #d9e1e8; --muted: #8b98a5; --accent: #e3a33b;
-    --good-bg: rgba(47,125,74,.18); --bad-bg: rgba(168,64,58,.16); --warn: #d1a03d;
-    --buy: #6aa7e0; --split: #c7a6f0; --sell: #e3a33b;
+    --bg: #0d1014; --panel: #151a20; --panel2: #1b222a; --panel3: #222b35; --line: #29323c;
+    --text: #dfe6ec; --muted: #8794a1; --accent: #e3a33b; --accent-dim: rgba(227,163,59,.14);
+    --pos: #63c98a; --neg: #ef8277; --warn: #d9a441;
+    --buy: #6aa9e6; --split: #b99cf0; --sell: #e3a33b;
+    --radius: 8px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
-           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  header h1 { font-size: 17px; margin: 0; color: var(--accent); letter-spacing: .3px; }
-  header .status { color: var(--muted); font-size: 13px; margin-left: auto; }
-  main { padding: 12px 16px 40px; max-width: 1500px; margin: 0 auto; }
-  .panel { background: var(--panel); border: 1px solid var(--line); padding: 12px; border-radius: 6px; }
-  form#settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; }
-  form#settings label, .field { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
-  input, select, button, textarea { font: inherit; color: var(--text); background: var(--panel2);
-                          border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; }
-  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
-  button:disabled { opacity: .5; cursor: progress; }
-  nav.tabs { display: flex; gap: 4px; margin: 14px 0 8px; flex-wrap: wrap; }
-  nav.tabs button.active { background: var(--accent); color: #111; border-color: var(--accent); }
-  nav.main { margin-top: 14px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-  nav.main button { font-weight: 600; padding: 7px 14px; }
-  section.group { margin: 18px 0; }
-  section.group h2 { font-size: 15px; margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  .badge { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--panel2);
-           border: 1px solid var(--line); color: var(--muted); font-weight: normal; }
-  .note, .warn { font-size: 12px; color: var(--warn); font-weight: normal; }
-  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
-  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-  th, td { padding: 5px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { background: var(--panel2); text-align: right; font-weight: 600; cursor: pointer; user-select: none; }
-  th:first-child, td:first-child { text-align: left; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+               font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  button, input, select, textarea { font: inherit; color: var(--text); }
+
+  /* ---------- top bar ---------- */
+  .topbar { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line);
+            display: flex; align-items: center; gap: 18px; padding: 0 20px; height: 54px; }
+  .brand { font-weight: 700; font-size: 16px; color: var(--accent); white-space: nowrap; }
+  .nav { display: flex; gap: 4px; height: 100%; }
+  .nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 14px; cursor: pointer;
+                color: var(--muted); font-weight: 600; height: 100%; }
+  .nav button:hover { color: var(--text); }
+  .nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .status { margin-left: auto; color: var(--muted); font-size: 13px; text-align: right; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+  .status.error { color: var(--neg); }
+  .status.busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px;
+            border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%;
+            animation: spin .8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  main { max-width: 1480px; margin: 0 auto; padding: 16px 20px 48px; }
+  #view { margin-top: 14px; }
+
+  /* ---------- cards, controls ---------- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .card + .card, .card + section, section + .card { margin-top: 14px; }
+  .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .btn { background: var(--panel3); border: 1px solid var(--line); border-radius: 6px; padding: 7px 14px;
+         cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: #3a4552; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #15110a; font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { background: none; }
+  .btn.small { padding: 4px 10px; font-size: 12px; }
+  .btn:disabled { opacity: .55; cursor: progress; }
+  input, select, textarea { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  input:disabled { opacity: .4; }
+  /* no spinner buttons on number fields - they covered the values */
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; }
+  .search { min-width: 220px; }
+  .seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 2px; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; border-radius: 5px; padding: 5px 11px; cursor: pointer; color: var(--muted); }
+  .seg button.active { background: var(--panel3); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+
+  /* ---------- settings ---------- */
+  details.settings { padding: 0; }
+  details.settings > summary { list-style: none; cursor: pointer; padding: 11px 16px; display: flex; gap: 12px; align-items: center; }
+  details.settings > summary::-webkit-details-marker { display: none; }
+  details.settings > summary .title { font-weight: 600; }
+  details.settings > summary .chev { margin-left: auto; color: var(--muted); transition: transform .15s; }
+  details.settings[open] > summary .chev { transform: rotate(180deg); }
+  details.settings > summary .sum { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .settings-body { border-top: 1px solid var(--line); padding: 14px 16px; }
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .field input, .field select { color: var(--text); font-size: 14px; }
+  .field input[type=number] { text-align: right; }
+  .settings-actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 12px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: 0; }
+  thead th { background: var(--panel2); font-size: 12px; font-weight: 600; color: var(--muted); text-align: right;
+             position: sticky; top: 0; }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--text); }
+  thead th.grouphead { text-align: center; color: var(--text); border-bottom: 1px solid var(--line); }
+  th.left, td.left { text-align: left; }
   td { text-align: right; }
   th.buy { color: var(--buy); } th.split { color: var(--split); } th.sell { color: var(--sell); }
-  th.first-of-block, td.first-of-block { border-left: 1px solid var(--line); }
+  .sep { border-left: 1px solid var(--line); }
   th.sorted::after { content: " ▾"; color: var(--accent); }
   th.sorted.asc::after { content: " ▴"; }
-  tr.row { cursor: pointer; }
-  tr.row.good { background: var(--good-bg); }
-  tr.row.bad { background: var(--bad-bg); }
-  tr.row:hover { filter: brightness(1.25); }
-  tr.row.err td { color: #f08a80; }
+  td.pos { color: var(--pos); } td.neg { color: var(--neg); }
+  tbody tr.clickable { cursor: pointer; }
+  tbody tr:hover td { background: rgba(255,255,255,.025); }
+  tbody tr.open td { background: var(--accent-dim); }
   tr.total td { font-weight: 700; background: var(--panel2); }
-  td.pos { color: #6fd08e; } td.neg { color: #f08a80; }
-  tr.detail td { background: var(--panel); text-align: left; white-space: normal; padding: 10px 14px; }
-  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
-  .detail-grid table th { cursor: default; }
-  h4 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
-  .tag { color: var(--muted); font-size: 12px; }
-  .empty { color: var(--muted); padding: 20px; text-align: center; }
-  .error { color: #f08a80; }
-  .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-  .plan-grid .list { max-height: 360px; overflow-y: auto; display: grid; grid-template-columns: 1fr 90px;
-                     gap: 3px 8px; align-items: center; font-size: 13px; }
-  .plan-grid .list input { width: 90px; text-align: right; padding: 3px 6px; }
-  textarea { width: 100%; min-height: 200px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
-  .warn-icon { color: var(--warn); cursor: help; }
+  tr.err td { color: var(--neg); }
+  tr.detail > td { background: var(--panel2); padding: 14px 16px; white-space: normal; text-align: left; }
+  .name-sub { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .warn-icon { color: var(--warn); cursor: help; margin-left: 4px; }
+  section.group { margin-top: 18px; }
+  section.group > h2 { font-size: 15px; margin: 0 0 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); font-weight: 500; }
+  .note { font-size: 12px; color: var(--warn); font-weight: 400; }
+  .empty { color: var(--muted); padding: 44px 20px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+  .detail-grid table { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  .detail-grid h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  p.warn { color: var(--warn); margin: 8px 0 0; font-size: 13px; }
+
+  /* ---------- KPI tiles ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 14px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .kpi .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi .vals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .kpi .vals div span { display: block; font-size: 11px; }
+  .kpi .vals div b { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .kpi .single { font-size: 22px; font-weight: 700; margin-top: 6px; }
+
+  /* ---------- planner ---------- */
+  .planner-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px; }
+  @media (max-width: 1000px) { .planner-top { grid-template-columns: 1fr; } }
+  .add-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 8px; }
+  .add-row input[type=number] { text-align: right; }
+  .orders { margin-top: 12px; }
+  .orders table td { padding: 6px 10px; }
+  .orders input[type=number] { width: 110px; text-align: right; padding: 5px 8px; }
+  .kind { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0 7px; }
+  .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
+  .x:hover { color: var(--neg); }
+  textarea.stock { width: 100%; height: 190px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .planner-actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .planner-actions .field { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
+  .planner-actions input { width: 90px; text-align: right; }
 </style>
 </head>
 <body>
-<header>
-  <h1>EVE Reaction Ding</h1>
-  <span class="tag">Quantities: reactions.coalition.space · Recipes: CCP SDE · Prices: Jita 4-4 live (ESI)</span>
-  <span class="status" id="status">Loading…</span>
-</header>
+<div class="topbar">
+  <div class="brand">EVE Reaction Ding</div>
+  <nav class="nav" id="nav"></nav>
+  <div class="status" id="status">Loading…</div>
+</div>
 <main>
-  <div class="panel">
-    <form id="settings" autocomplete="off"></form>
-    <div class="actions">
-      <button type="button" id="save">Save settings</button>
-      <button type="button" id="reset">Reset</button>
-      <span class="tag">Buy = highest buy order · Sell = lowest sell order · Split = middle of both (Jita 4-4, live from ESI)</span>
+  <details class="card settings" id="settingsBox">
+    <summary><span class="title">Settings</span><span class="sum" id="settingsSum"></span><span class="chev">▾</span></summary>
+    <div class="settings-body">
+      <form id="settings" class="settings-grid" autocomplete="off"></form>
+      <div class="settings-actions">
+        <button type="button" class="btn" id="save">Save as default</button>
+        <button type="button" class="btn ghost" id="reset">Reset</button>
+        <span class="muted small">Prices: Jita 4-4 live (ESI) – Buy = highest buy order, Sell = lowest sell order, Split = middle.
+          Recipes: CCP SDE. Quantities and job cost of the reactions table: reactions.coalition.space.</span>
+      </div>
     </div>
-  </div>
-  <nav class="tabs main" id="mainTabs"></nav>
+  </details>
   <div id="view"></div>
 </main>
 <script>
@@ -94,69 +167,93 @@
 const MODES = ["buy", "split", "sell"];
 const MODE_TEXT = { buy: "Buy", split: "Split", sell: "Sell" };
 const LABELS = {
-  system: "System", brokers: "Broker Fee %", sales: "Sales Tax %", skill: "Reactions", facility: "Facility",
-  rigs: "Rig", space: "Space", tax: "IndyTax %", scc: "SCC %", duration: "Build Time (min)", cycles: "Cycles",
-  costIndex: "Cost Index % (WH)", prismaticite: "Prismaticite %", componentMe: "Component ME %",
+  system: "System", brokers: "Broker fee %", sales: "Sales tax %", skill: "Reactions skill", facility: "Refinery",
+  rigs: "Rigs", space: "Space", tax: "Industry tax %", scc: "SCC surcharge %", duration: "Build time (min)",
+  cycles: "Cycles", costIndex: "Cost index % (WH only)", prismaticite: "Prismaticite luck %", componentMe: "Component ME %",
 };
-const OPTION_TEXT = { rigs: { 0: "No Rig", 1: "Tech 1 Rig", 2: "Tech 2 Rig" },
-                      facility: { medium: "medium Refinery", large: "large Refinery" },
+const OPTION_TEXT = { rigs: { 0: "No rig", 1: "Tech 1 rig", 2: "Tech 2 rig" },
+                      facility: { medium: "Medium (Athanor)", large: "Large (Tatara)" },
                       skill: { 1: "Level 1", 2: "Level 2", 3: "Level 3", 4: "Level 4", 5: "Level 5" } };
-let META = null, VIEW = "reactions";
-const state = { rows: [], tab: "all", chain: null, chainTab: "complex", plan: null, planMeta: null, planResult: null };
+const state = { view: "reactions", rows: [], tab: "all", filter: "", chain: null, chainTab: "complex",
+                planMeta: null, plan: null, planResult: null, open: new Set() };
+let META = null;
 const sortState = {};
-const isk = v => v == null ? "–" : Math.round(v).toLocaleString("en-US");
-const unit = v => v == null ? "–" : v.toLocaleString("en-US", { maximumFractionDigits: v < 1000 ? 2 : 0 });
-const pct = v => v == null ? "–" : v.toFixed(2) + " %";
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- helpers ----------
 const $ = id => document.getElementById(id);
-const signCls = v => v == null ? "" : v >= 0 ? "pos" : "neg";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const full = v => v == null ? "" : Math.round(v).toLocaleString("en-US");
+function isk(v) {   // compact ISK: 1.23 B / 45.6 M / 12.3 k
+  if (v == null || Number.isNaN(v)) return "–";
+  const a = Math.abs(v), s = v < 0 ? "−" : "";
+  if (a >= 1e9) return s + (a / 1e9).toFixed(2) + " B";
+  if (a >= 1e6) return s + (a / 1e6).toFixed(2) + " M";
+  if (a >= 1e4) return s + (a / 1e3).toFixed(1) + " k";
+  return s + a.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+const unit = v => v == null ? "–" : (v < 0 ? "−" : "") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: Math.abs(v) < 100 ? 2 : Math.abs(v) < 10000 ? 1 : 0 });
+const num = v => v == null ? "–" : Math.round(v).toLocaleString("en-US");
+const pct = v => v == null ? "–" : v.toFixed(1) + " %";
+const sign = v => v == null ? "" : v >= 0 ? "pos" : "neg";
+const warnIcon = list => list && list.length ? `<span class="warn-icon" title="${esc(list.join("\n"))}">⚠</span>` : "";
 
 async function api(path, body) {
-  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
-                                         body: JSON.stringify(body) } : {});
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
-function status(text, error) { const s = $("status"); s.textContent = text; s.className = "status" + (error ? " error" : ""); }
+function status(text, kind) {
+  const s = $("status");
+  s.textContent = text; s.title = text;
+  s.className = "status" + (kind === "error" ? " error" : kind === "busy" ? " busy" : "");
+}
+
+// ---------- settings ----------
+function buildSettings() {
+  const form = $("settings");
+  form.innerHTML = Object.entries(META.schema).map(([key, spec]) => {
+    const value = META.settings[key];
+    let input;
+    if (spec.kind === "enum" || spec.kind === "int_enum") {
+      input = `<select name="${key}">` + spec.rule.map(o => `<option value="${o}" ${String(o) === String(value) ? "selected" : ""}>${esc((OPTION_TEXT[key] || {})[o] || o)}</option>`).join("") + "</select>";
+    } else if (spec.kind === "str") {
+      input = `<input name="${key}" value="${esc(value)}">`;
+    } else {
+      input = `<input name="${key}" type="number" inputmode="decimal" min="${spec.rule[0]}" max="${spec.rule[1]}" step="any" value="${esc(value)}">`;
+    }
+    return `<label class="field" title="${esc(spec.label)}">${LABELS[key] || key}${input}</label>`;
+  }).join("");
+  form.addEventListener("input", updateSettingsSummary);
+  form.addEventListener("change", updateSettingsSummary);
+  $("save").onclick = async () => {
+    try { await api("/api/settings", { settings: formSettings() }); status("Settings saved as default."); }
+    catch (e) { status(e.message, "error"); }
+  };
+  $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; updateSettingsSummary(); };
+  updateSettingsSummary();
+}
 function formSettings() {
   const out = {};
   for (const el of $("settings").elements) if (el.name) out[el.name] = el.value;
   return out;
 }
-
-// ---------- settings ----------
-function buildForm() {
-  const form = $("settings");
-  for (const [key, spec] of Object.entries(META.schema)) {
-    const value = META.settings[key];
-    let field;
-    if (spec.kind === "enum" || spec.kind === "int_enum") {
-      field = `<select name="${key}">` + spec.rule.map(o =>
-        `<option value="${o}" ${String(o) === String(value) ? "selected" : ""}>${esc((OPTION_TEXT[key] || {})[o] || o)}</option>`).join("") + "</select>";
-    } else {
-      const num = spec.kind !== "str";
-      const range = num ? `min="${spec.rule[0]}" max="${spec.rule[1]}" step="any"` : "";
-      field = `<input name="${key}" ${num ? 'type="number"' : ""} ${range} value="${esc(value)}">`;
-    }
-    form.insertAdjacentHTML("beforeend", `<label title="${esc(spec.label)}">${LABELS[key] || key}${field}</label>`);
-  }
-  $("save").onclick = async () => {
-    try { await api("/api/settings", { settings: formSettings() }); status("Settings saved."); }
-    catch (e) { status(e.message, true); }
-  };
-  $("reset").onclick = () => { for (const [k, v] of Object.entries(META.defaults)) form.elements[k].value = v; updateCostIndex(); };
-  form.elements.space.addEventListener("change", updateCostIndex);
-  updateCostIndex();
+function updateSettingsSummary() {
+  const f = $("settings").elements;
+  f.costIndex.disabled = f.space.value !== "wormhole";
+  const opt = (k) => (OPTION_TEXT[k] || {})[f[k].value] || f[k].value;
+  $("settingsSum").textContent = [f.system.value, f.space.value, opt("facility"), opt("rigs"), `Reactions ${f.skill.value}`,
+    `Broker ${f.brokers.value} %`, `Sales ${f.sales.value} %`, `Tax ${f.tax.value} %`, `SCC ${f.scc.value} %`,
+    `${f.duration.value} min`, `Component ME ${f.componentMe.value} %`].join("  ·  ");
 }
-function updateCostIndex() { const f = $("settings").elements; f.costIndex.disabled = f.space.value !== "wormhole"; }
 
-// ---------- generic sortable table ----------
-// cols: [{key, title, cls, fmt, value(row), first}]
+// ---------- tables ----------
+// column: {key, title, group, cls, left, sep, fmt(v,row), value(row), html(row), signed, tip}
 function sortRows(rows, id, cols) {
   const st = sortState[id];
   if (!st) return rows;
-  const col = cols.find(c => c.key === st.key) || cols[0];
+  const col = cols.find(c => c.key === st.key);
+  if (!col) return rows;
   const val = col.value || (r => r[col.key]);
   const dir = st.asc ? 1 : -1;
   return [...rows].sort((a, b) => {
@@ -165,18 +262,36 @@ function sortRows(rows, id, cols) {
     return dir * ((x ?? -Infinity) - (y ?? -Infinity));
   });
 }
-function tableHtml(id, rows, cols, rowAttrs) {
+function headHtml(id, cols) {
   const st = sortState[id] || {};
-  const head = cols.map(c => `<th data-sort="${c.key}" data-table="${id}" class="${c.cls || ""} ${c.first ? "first-of-block" : ""} ${st.key === c.key ? "sorted" + (st.asc ? " asc" : "") : ""}">${c.title}</th>`).join("");
+  const sortCls = c => `sortable ${st.key === c.key ? "sorted" + (st.asc ? " asc" : "") : ""}`;
+  const th = (c, extra = "") => `<th data-sort="${c.key}" data-table="${id}" class="${sortCls(c)} ${c.cls || ""} ${c.left ? "left" : ""} ${c.sep ? "sep" : ""}" ${extra}>${c.title}</th>`;
+  if (!cols.some(c => c.group)) return `<tr>${cols.map(c => th(c)).join("")}</tr>`;
+  let top = "", i = 0;
+  while (i < cols.length) {
+    const c = cols[i];
+    if (!c.group) { top += th(c, 'rowspan="2"'); i++; continue; }
+    let n = 0;
+    while (i + n < cols.length && cols[i + n].group === c.group) n++;
+    top += `<th class="grouphead sep" colspan="${n}">${c.group}</th>`;
+    i += n;
+  }
+  return `<tr>${top}</tr><tr>${cols.filter(c => c.group).map(c => th(c)).join("")}</tr>`;
+}
+function tableHtml(id, rows, cols, opts = {}) {
   const body = sortRows(rows, id, cols).map(r => {
-    const attrs = rowAttrs ? rowAttrs(r) : "";
-    return `<tr ${attrs}>` + cols.map(c => {
+    const attrs = opts.rowAttrs ? opts.rowAttrs(r) : "";
+    let html = `<tr ${attrs}>` + cols.map(c => {
       const v = c.value ? c.value(r) : r[c.key];
-      const html = c.html ? c.html(r) : (c.fmt || isk)(v);
-      return `<td class="${c.signed ? signCls(v) : ""} ${c.first ? "first-of-block" : ""}">${html}</td>`;
+      const content = c.html ? c.html(r) : (c.fmt || isk)(v, r);
+      const tip = c.tip ? ` title="${esc(c.tip(v, r))}"` : (!c.html && typeof v === "number" ? ` title="${full(v)}"` : "");
+      return `<td class="${c.left ? "left" : ""} ${c.sep ? "sep" : ""} ${c.signed ? sign(v) : ""}"${tip}>${content}</td>`;
     }).join("") + "</tr>";
+    if (opts.detail) html += opts.detail(r, cols.length);
+    return html;
   }).join("");
-  return `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const foot = opts.foot ? opts.foot(cols) : "";
+  return `<div class="tablewrap"><table><thead>${headHtml(id, cols)}</thead><tbody>${body}${foot}</tbody></table></div>`;
 }
 document.addEventListener("click", e => {
   const th = e.target.closest("th[data-sort]");
@@ -185,70 +300,114 @@ document.addEventListener("click", e => {
   sortState[id] = { key, asc: cur && cur.key === key ? !cur.asc : key === "name" };
   render();
 });
-const modeCols = (prefix, title, opts = {}) => MODES.map((m, i) => ({
-  key: `${prefix}_${m}`, title: `${title} ${MODE_TEXT[m]}`, cls: m, first: i === 0, ...opts,
-  value: opts.value ? (r => opts.value(r, m)) : undefined,
+const triple = (group, prefix, opts = {}) => MODES.map((m, i) => ({
+  key: `${prefix}_${m}`, title: MODE_TEXT[m], group, cls: m, sep: i === 0, ...opts,
+  value: opts.pick ? (r => opts.pick(r, m)) : undefined,
 }));
+const matches = name => !state.filter || name.toLowerCase().includes(state.filter.toLowerCase());
 
-// ---------- view switching ----------
-function buildMainTabs() {
-  const tabs = [["reactions", "Reactions"], ["chain", "Cost chain (sheet 7)"], ["planner", "Planner (sheet 8.1)"]];
-  $("mainTabs").innerHTML = tabs.map(([k, t]) => `<button type="button" data-view="${k}" class="${k === VIEW ? "active" : ""}">${t}</button>`).join("");
-  $("mainTabs").onclick = e => {
-    const k = e.target.dataset.view;
-    if (!k) return;
-    if (VIEW === "planner" && $("stock")) state.plan = readPlan();  // keep unsaved planner input
-    VIEW = k; buildMainTabs(); render();
-  };
+// ---------- navigation ----------
+const VIEWS = [["reactions", "Reactions"], ["chain", "Cost chain"], ["planner", "Planner"]];
+function buildNav() {
+  $("nav").innerHTML = VIEWS.map(([k, t]) => `<button data-view="${k}" class="${k === state.view ? "active" : ""}">${t}</button>`).join("");
 }
+$("nav").addEventListener("click", e => {
+  const k = e.target.dataset.view;
+  if (!k || k === state.view) return;
+  if (state.view === "planner" && $("stock")) state.plan = readPlan();
+  state.view = k; state.filter = ""; buildNav(); render();
+});
 function render() {
-  if (VIEW === "reactions") return renderReactions();
-  if (VIEW === "chain") return renderChain();
-  return renderPlanner();
+  if (state.view === "reactions") renderReactions();
+  else if (state.view === "chain") renderChain();
+  else renderPlanner();
+}
+function bindSearch(id) {
+  const el = $(id);
+  if (!el) return;
+  el.value = state.filter;
+  el.oninput = () => { state.filter = el.value; const pos = el.selectionStart; render(); const n = $(id); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
 // ---------- reactions ----------
 function renderReactions() {
-  const groupsTabs = [["all", "All"], ...Object.entries(META.calculators), ["ranking", "Ranking"]];
-  let html = `<div class="actions"><button class="primary" id="calc">Calculate</button>
-    <label class="tag">Source <select id="source"><option value="auto">auto (API + fallback)</option>
-      <option value="api">API only</option><option value="web">calculator page only</option></select></label>
-    <button id="csv">Export CSV</button>
-    <span class="tag">Cost = input materials + market fees + job cost · Profit = output value − market fees − cost</span></div>
-    <nav class="tabs">${groupsTabs.map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? "active" : ""}">${esc(t)}</button>`).join("")}</nav>`;
-  const rows = state.rows;
-  if (!rows.length) html += '<div class="empty">Press <b>Calculate</b> to load all reactions (takes about 30 seconds).</div>';
-  const cols = [
-    { key: "name", title: "Reaction", fmt: x => x, html: r => esc(r.name) + (state.tab === "ranking" ? ` <span class="tag">${esc(r.groupTitle)}</span>` : "")
-        + warnIcon([...(r.notes || []), ...Object.entries(r.missingPrices || {}).map(([k, v]) => `${k}: ${v}`)]) },
-    ...modeCols("cost", "Cost"), ...modeCols("profit", "Profit", { signed: true }),
-  ];
-  const attrs = r => `class="row ${r.error ? "err" : r.profit_split > 0 ? "good" : "bad"}" data-key="${r.group}:${r.id}"`;
-  if (rows.length && state.tab === "ranking") {
-    if (!sortState.ranking) sortState.ranking = { key: "profit_split", asc: false };
-    html += `<section class="group"><h2>All reactions ranked</h2>${tableHtml("ranking", rows.filter(r => !r.error), cols, attrs)}</section>`;
-  } else if (rows.length) {
-    for (const g of META.groups) {
-      if (state.tab !== "all" && g.calculator !== state.tab) continue;
-      const gr = rows.filter(r => r.group === g.key);
-      if (!gr.length) continue;
-      const src = gr[0].source;
-      html += `<section class="group"><h2>${esc(g.title)} <span class="badge">${src === "web" ? "calculator page" : "API"}</span>
-        ${src === "web" && g.issue ? `<span class="note">⚠ ${esc(g.issue)}</span>` : ""}</h2>${tableHtml(g.key, gr, cols, attrs)}</section>`;
+  const groupTabs = [["all", "All"], ...Object.entries(META.calculators).map(([k, t]) => [k, t.replace(" Reactions", "")]), ["ranking", "Ranking"]];
+  let html = `<div class="toolbar">
+      <button class="btn primary" id="calc">${state.rows.length ? "Recalculate" : "Calculate"}</button>
+      <div class="seg" id="groupTabs">${groupTabs.map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? "active" : ""}">${esc(t)}</button>`).join("")}</div>
+      <input class="search" id="search" placeholder="Search reaction…">
+      <span class="grow"></span>
+      <select id="source" title="Where quantities and job costs come from"><option value="auto">Source: auto</option>
+        <option value="api">Source: API only</option><option value="web">Source: calculator page</option></select>
+      <button class="btn" id="csv">Export CSV</button>
+    </div>`;
+  const rows = state.rows.filter(r => matches(r.name));
+  if (!state.rows.length) {
+    html += `<div class="empty">Press <b>Calculate</b> to load all 177 reactions (about one minute).<br>
+      <span class="small">Cost = input materials + market fees + job cost · Profit = output value − market fees − cost</span></div>`;
+  } else {
+    const cols = [
+      { key: "name", title: "Reaction", left: true, html: r => esc(r.name)
+          + (state.tab === "ranking" ? `<span class="name-sub">${esc(r.groupTitle)}</span>` : "")
+          + warnIcon([...(r.notes || []), ...Object.entries(r.missingPrices || {}).map(([k, v]) => `${k}: ${v}`)]) },
+      ...triple("Cost", "cost"),
+      ...triple("Profit", "profit", { signed: true }),
+      { key: "profitPercent_split", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true },
+    ];
+    const opts = {
+      rowAttrs: r => `class="clickable ${r.error ? "err" : ""} ${state.open.has(r.group + ":" + r.id) ? "open" : ""}" data-key="${r.group}:${r.id}"`,
+      detail: (r, n) => state.open.has(r.group + ":" + r.id) && r.result ? `<tr class="detail"><td colspan="${n}">${reactionDetail(r)}</td></tr>` : "",
+    };
+    if (state.tab === "ranking") {
+      if (!sortState.ranking) sortState.ranking = { key: "profit_split", asc: false };
+      html += `<section class="group"><h2>All reactions <span class="badge">${rows.length}</span></h2>${tableHtml("ranking", rows.filter(r => !r.error), cols, opts)}</section>`;
+    } else {
+      for (const g of META.groups) {
+        if (state.tab !== "all" && g.calculator !== state.tab) continue;
+        const gr = rows.filter(r => r.group === g.key);
+        if (!gr.length) continue;
+        html += `<section class="group"><h2>${esc(g.title)} <span class="badge">${gr.length}</span>
+          ${gr[0].source === "web" && g.issue ? `<span class="note" title="${esc(g.issue)}">⚠ quantities from calculator page</span>` : ""}</h2>
+          ${tableHtml(g.key, gr, cols, opts)}</section>`;
+      }
     }
   }
   $("view").innerHTML = html;
   $("calc").onclick = runReactions;
   $("csv").onclick = exportCsv;
-  document.querySelector("nav.tabs:not(.main)").onclick = e => { const k = e.target.dataset.tab; if (k) { state.tab = k; render(); } };
+  $("groupTabs").onclick = e => { const k = e.target.dataset.tab; if (k) { state.tab = k; render(); } };
+  bindSearch("search");
 }
-function warnIcon(list) {
-  return list.length ? ` <span class="warn-icon" title="${esc(list.join("\n"))}">⚠</span>` : "";
+$("view").addEventListener("click", e => {
+  if (state.view !== "reactions" || e.target.closest("th, .detail")) return;
+  const tr = e.target.closest("tr.clickable");
+  if (!tr) return;
+  const key = tr.dataset.key;
+  state.open.has(key) ? state.open.delete(key) : state.open.add(key);
+  render();
+});
+function reactionDetail(row) {
+  const r = row.result, c = r.cycle_data || {}, p = row.prices || {}, v = row.views;
+  const outs = Array.isArray(r.output) ? r.output : [r.output || {}];
+  const line = (x, out) => `<tr><td class="left">${out ? "<b>Output</b> · " : ""}${esc(x.name)}${(p[x.name] || {}).note ? warnIcon([p[x.name].note]) : ""}</td><td>${num(x.quantity)}</td>`
+    + MODES.map((m, i) => `<td class="${i === 0 ? "sep" : ""}">${unit((p[x.name] || {})[m])}</td>`).join("") + "</tr>";
+  const items = (r.input || []).map(x => line(x, false)).join("") + outs.map(x => line(x, true)).join("");
+  const breakdown = [["inputs", "Input materials"], ["inputFees", "+ Market fees (inputs)"], ["install", "+ Job cost (system, facility, SCC)"],
+                     ["cost", "= Cost", true], ["output", "Output value"], ["outputFees", "− Market fees (output)"],
+                     ["profit", "= Profit", true], ["profitPerHour", "Profit per hour"]]
+    .map(([k, t, bold]) => `<tr><td class="left">${bold ? `<b>${t}</b>` : t}</td>` + MODES.map((m, i) => `<td class="${i === 0 ? "sep" : ""} ${k === "profit" ? sign(v[m][k]) : ""}" title="${full(v[m][k])}">${bold ? `<b>${isk(v[m][k])}</b>` : isk(v[m][k])}</td>`).join("") + "</tr>").join("");
+  const heads = MODES.map((m, i) => `<th class="${m} ${i === 0 ? "sep" : ""}">${MODE_TEXT[m]}</th>`).join("");
+  return `<div class="detail-grid">
+    <div><h4>Materials · price per unit in Jita 4-4</h4><table><thead><tr><th class="left">Item</th><th>Quantity</th>${heads}</tr></thead><tbody>${items}</tbody></table></div>
+    <div><h4>Cost and profit</h4><table><thead><tr><th class="left"></th>${heads}</tr></thead><tbody>${breakdown}</tbody></table>
+      <p class="muted small">${num(row.runs)} runs${c.cycle_time ? ` · ${num(c.cycle_time)} s per run` : ""} · window ${num(c.total_time)} min · quantities from ${row.source === "web" ? "calculator page" : "calculator API"}</p>
+      ${(row.notes || []).map(n => `<p class="warn">⚠ ${esc(n)}</p>`).join("")}</div>
+  </div>`;
 }
 async function runReactions() {
   const settings = formSettings(), source = $("source").value;
   $("calc").disabled = true;
-  state.rows = [];
+  state.rows = []; state.open.clear();
   const groups = META.groups;
   try {
     const batches = [];
@@ -258,54 +417,26 @@ async function runReactions() {
       if (keys.length) batches.push(keys);
     }
     for (const g of groups) if (!webKeys.includes(g.key)) batches.push([g.key]);
-    let done = 0;
     const total = groups.reduce((n, g) => n + g.items.length, 0), notes = new Set(), warns = new Set();
+    let done = 0;
     for (const keys of batches) {
-      status(`Calculating… ${done}/${total} reactions`);
+      status(`Calculating reactions… ${done} / ${total}`, "busy");
       const data = await api("/api/calc", { settings, source, groups: keys });
       state.rows.push(...data.rows);
       (data.notes || []).forEach(n => notes.add(n));
       (data.warnings || []).forEach(w => warns.add(w));
-      if (data.settings.system !== $("settings").elements.system.value) $("settings").elements.system.value = data.settings.system;
+      if (data.settings.system !== $("settings").elements.system.value) { $("settings").elements.system.value = data.settings.system; updateSettingsSummary(); }
       done += data.rows.length;
-      if (VIEW === "reactions") render();
+      if (state.view === "reactions") { const f = document.activeElement && document.activeElement.id; render(); if (f && $(f)) $(f).focus(); }
     }
     const errors = state.rows.filter(r => r.error).length;
-    status(`${state.rows.length} reactions calculated ${new Date().toLocaleTimeString()}` + (errors ? ` – ${errors} errors` : "")
-           + [...notes].map(n => " · " + n).join("") + [...warns].map(w => " ⚠ " + w).join(""), errors > 0 || warns.size > 0);
-  } catch (e) { status(e.message, true); }
-  finally { const b = $("calc"); if (b) b.disabled = false; }
-}
-$("view").addEventListener("click", e => {
-  if (VIEW !== "reactions" || e.target.closest("th")) return;
-  const tr = e.target.closest("tr.row");
-  if (!tr) return;
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains("detail")) { next.remove(); return; }
-  const [group, id] = tr.dataset.key.split(":");
-  const row = state.rows.find(r => r.group === group && String(r.id) === id);
-  if (row && row.result) tr.insertAdjacentHTML("afterend", `<tr class="detail"><td colspan="7">${reactionDetail(row)}</td></tr>`);
-});
-function reactionDetail(row) {
-  const r = row.result, c = r.cycle_data || {}, p = row.prices || {}, v = row.views;
-  const outs = Array.isArray(r.output) ? r.output : [r.output || {}];
-  const line = (x, label) => `<tr><td>${label}${esc(x.name)}${(p[x.name] || {}).note ? warnIcon([p[x.name].note]) : ""}</td><td>${isk(x.quantity)}</td>`
-    + MODES.map(m => `<td>${unit((p[x.name] || {})[m])}</td>`).join("") + "</tr>";
-  const items = (r.input || []).map(x => line(x, "")).join("") + outs.map(x => line(x, "<b>Output:</b> ")).join("");
-  const rows = [["inputs", "Input materials"], ["inputFees", "Market fees inputs"], ["install", "Job cost (system, facility, SCC)"],
-                ["cost", "<b>= Cost</b>"], ["output", "Output value"], ["outputFees", "Market fees output"],
-                ["profit", "<b>= Profit</b>"], ["profitPerHour", "Profit per hour"]]
-    .map(([k, t]) => `<tr><td>${t}</td>` + MODES.map(m => `<td class="${k === "profit" ? signCls(v[m][k]) : ""}">${isk(v[m][k])}</td>`).join("") + "</tr>").join("")
-    + `<tr><td>% profit</td>` + MODES.map(m => `<td>${pct(v[m].profitPercent)}</td>`).join("") + "</tr>";
-  const notes = [...(row.notes || [])].map(n => `<p class="warn">⚠ ${esc(n)}</p>`).join("");
-  return `<div class="detail-grid">
-    <div><h4>Materials <span class="tag">price per unit, Jita 4-4</span></h4><table><tr><th>Item</th><th>Quantity</th><th class="buy">Buy</th><th class="split">Split</th><th class="sell">Sell</th></tr>${items}</table></div>
-    <div><h4>Cost and profit</h4><table><tr><th></th><th class="buy">Buy</th><th class="split">Split</th><th class="sell">Sell</th></tr>${rows}</table>
-      <p class="tag">Runs: ${isk(row.runs)}${c.cycle_time ? ` · cycle time ${isk(c.cycle_time)} s` : ""} · window ${isk(c.total_time)} min · type id ${row.id} · quantities from ${row.source === "web" ? "calculator page" : "calculator API"}</p>${notes}</div>
-  </div>`;
+    status(`${state.rows.length} reactions · ${new Date().toLocaleTimeString()}` + (errors ? ` · ${errors} errors` : "")
+           + [...notes].map(n => " · " + n).join("") + [...warns].map(w => " · ⚠ " + w).join(""), errors || warns.size ? "error" : "");
+  } catch (e) { status(e.message, "error"); }
+  finally { if ($("calc")) $("calc").disabled = false; }
 }
 function exportCsv() {
-  if (!state.rows.length) return status("Nothing to export – calculate first.", true);
+  if (!state.rows.length) return status("Nothing to export – calculate first.", "error");
   const head = ["Calculator", "Group", "Reaction", "Type ID", ...MODES.map(m => `Cost ${m}`), ...MODES.map(m => `Profit ${m}`), "Runs", "Notes", "Error"];
   download("reactions", [head, ...state.rows.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id,
     ...MODES.map(m => r[`cost_${m}`]), ...MODES.map(m => r[`profit_${m}`]), r.runs, (r.notes || []).join("; "), r.error])]);
@@ -320,94 +451,172 @@ function download(name, rows) {
 }
 
 // ---------- cost chain (sheet 7) ----------
+const CHAIN_TABS = [["simple", "Simple"], ["complex", "Complex"], ["hybrid", "Hybrid"], ["components", "T2 components"], ["capital", "Capital components"]];
 function renderChain() {
-  const tabs = [["simple", "Simple Reactions"], ["complex", "Complex Reactions"], ["hybrid", "Hybrid Reactions"],
-                ["components", "T2 Components"], ["capital", "Capital T2 Components"]];
-  let html = `<div class="actions"><button class="primary" id="loadChain">Calculate cost chain</button>
-    <span class="tag">Material cost per unit when you react everything yourself (moon goo → simple → complex → components), like sheet 7.
-    No job cost or market fees. Recipes: CCP SDE, reaction ME from rig settings, component ME from settings.</span></div>
-    <nav class="tabs">${tabs.map(([k, t]) => `<button data-ctab="${k}" class="${k === state.chainTab ? "active" : ""}">${t}</button>`).join("")}</nav>`;
-  if (!state.chain) html += '<div class="empty">Press <b>Calculate cost chain</b>.</div>';
-  else {
+  let html = `<div class="toolbar">
+      <button class="btn primary" id="loadChain">${state.chain ? "Recalculate" : "Calculate"}</button>
+      <div class="seg" id="chainTabs">${CHAIN_TABS.map(([k, t]) => `<button data-ctab="${k}" class="${k === state.chainTab ? "active" : ""}">${t}${state.chain ? ` <span class="muted small">${state.chain[k].length}</span>` : ""}</button>`).join("")}</div>
+      <input class="search" id="search" placeholder="Search item…">
+    </div>`;
+  if (!state.chain) {
+    html += `<div class="empty">Press <b>Calculate</b> for the cost chain (like sheet 7).<br>
+      <span class="small">Material cost per unit when you react everything yourself: moon goo → simple → complex → components.
+      No job cost or market fees.</span></div>`;
+  } else {
     const cols = [
-      { key: "name", title: "Item", fmt: x => x, html: r => esc(r.name) + warnIcon(Object.entries(r.missingPrices).map(([k, v]) => `${k}: ${v}`)) },
-      ...MODES.map((m, i) => ({ key: `price_${m}`, title: `Jita ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.price[m] })),
-      ...MODES.map((m, i) => ({ key: `cost_${m}`, title: `Cost ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.cost[m] })),
-      ...MODES.map((m, i) => ({ key: `profit_${m}`, title: `Profit ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, signed: true, value: r => r.profit[m] })),
-      { key: "margin_split", title: "Margin Split", first: true, fmt: pct, value: r => r.margin.split },
-      { key: "ppr_split", title: "Profit/run Split", fmt: isk, signed: true, value: r => r.profitPerRun.split },
+      { key: "name", title: "Item", left: true, html: r => esc(r.name) + warnIcon(Object.entries(r.missingPrices).map(([k, v]) => `${k}: ${v}`)) },
+      ...triple("Jita price", "price", { fmt: unit, pick: (r, m) => r.price[m] }),
+      ...triple("Production cost", "cost", { fmt: unit, pick: (r, m) => r.cost[m] }),
+      ...triple("Profit per unit", "profit", { fmt: unit, signed: true, pick: (r, m) => r.profit[m] }),
+      { key: "margin", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, value: r => r.margin.split },
+      { key: "ppr", title: "Profit / run<br>(Split)", fmt: isk, signed: true, value: r => r.profitPerRun.split },
     ];
-    html += tableHtml("chain_" + state.chainTab, state.chain[state.chainTab], cols, r => `class="${(r.profit.split || 0) >= 0 ? "row good" : "row bad"}"`);
-    html += `<p class="tag">Reaction ME ${(state.chain.reactionMe * 100).toFixed(2)} % · component ME ${(state.chain.componentMe * 100).toFixed(0)} % · profit per unit = Jita price − cost (same method)</p>`;
+    const rows = state.chain[state.chainTab].filter(r => matches(r.name));
+    html += tableHtml("chain_" + state.chainTab, rows, cols);
+    html += `<p class="muted small">Reaction ME ${(state.chain.reactionMe * 100).toFixed(2)} % (rigs) · component ME ${(state.chain.componentMe * 100).toFixed(0)} %
+      · intermediate products at your own production cost · profit = Jita price − production cost (same price method).</p>`;
   }
   $("view").innerHTML = html;
   $("loadChain").onclick = loadChain;
-  document.querySelector("nav.tabs:not(.main)").onclick = e => { const k = e.target.dataset.ctab; if (k) { state.chainTab = k; render(); } };
+  $("chainTabs").onclick = e => { const b = e.target.closest("button"); if (b) { state.chainTab = b.dataset.ctab; render(); } };
+  bindSearch("search");
 }
 async function loadChain() {
   $("loadChain").disabled = true;
-  status("Calculating cost chain…");
+  status("Calculating cost chain…", "busy");
   try {
     const data = await api("/api/chain", { settings: formSettings() });
     state.chain = data.chain;
-    status(`Cost chain calculated ${new Date().toLocaleTimeString()} · CCP SDE build ${data.sde.build}${data.sde.offline ? " (offline copy)" : ""}`
-           + (data.notes || []).map(n => " · " + n).join(""));
+    status(`Cost chain · ${new Date().toLocaleTimeString()} · CCP SDE ${data.sde.build}${data.sde.offline ? " (offline copy)" : ""}` + (data.notes || []).map(n => " · " + n).join(""));
     render();
-  } catch (e) { status(e.message, true); const b = $("loadChain"); if (b) b.disabled = false; }
+  } catch (e) { status(e.message, "error"); if ($("loadChain")) $("loadChain").disabled = false; }
 }
 
 // ---------- planner (sheet 8.1) ----------
+function planItems() {
+  const pm = state.planMeta;
+  return [...pm.complex.map(n => [n, "jobs", "complex"]), ...pm.hybrid.map(n => [n, "jobs", "hybrid"]),
+          ...pm.components.map(n => [n, "components", "component"]), ...pm.capital.map(n => [n, "components", "capital"])];
+}
+function orders() {
+  const p = state.plan, out = [];
+  for (const [name, n] of Object.entries(p.jobs || {})) out.push({ name, key: "jobs", n });
+  for (const [name, n] of Object.entries(p.components || {})) out.push({ name, key: "components", n });
+  return out;
+}
 async function renderPlanner() {
   if (!state.planMeta) {
     $("view").innerHTML = '<div class="empty">Loading recipes…</div>';
     try { state.planMeta = await api("/api/planner/meta"); state.plan = state.planMeta.plan; }
-    catch (e) { status(e.message, true); return; }
+    catch (e) { status(e.message, "error"); return; }
   }
-  const pm = state.planMeta, plan = state.plan;
-  const list = (names, key, title) => `<div><h4>${title}</h4><div class="list">` + names.map(n =>
-    `<span>${esc(n)}</span><input type="number" min="0" step="1" data-plan="${key}" data-name="${esc(n)}" value="${(plan[key] || {})[n] || ""}" placeholder="0">`).join("") + "</div></div>";
-  let html = `<div class="panel"><div class="plan-grid">
-      ${list(pm.complex, "jobs", "Complex reactions – jobs")}
-      ${list(pm.hybrid, "jobs", "Hybrid reactions – jobs")}
-      ${list([...pm.components, ...pm.capital], "components", "Components to build – units")}
-      <div><h4>Stock <span class="tag">paste from EVE (inventory, select all, Ctrl+C)</span></h4>
-        <textarea id="stock" placeholder="Cadmium&#9;100.000&#10;Caesarium Cadmide&#9;50.000">${esc(plan.stock || "")}</textarea></div>
+  const items = planItems(), kindOf = Object.fromEntries(items.map(([n, , k]) => [n, k]));
+  const list = orders();
+  const orderRows = list.length ? list.map(o => `<tr><td class="left">${esc(o.name)} <span class="kind">${kindOf[o.name] || "?"}</span></td>
+      <td><input type="number" min="1" step="1" data-order="${o.key}" data-name="${esc(o.name)}" value="${o.n}"></td>
+      <td class="left muted small">${o.key === "jobs" ? "jobs" : "units"}</td>
+      <td><button class="x" data-remove="${o.key}" data-name="${esc(o.name)}" title="Remove">×</button></td></tr>`).join("")
+    : `<tr><td class="left muted" colspan="4">No orders yet – add complex / hybrid reaction jobs or components to build.</td></tr>`;
+  const stockCount = (state.plan.stock || "").split(/\n/).filter(l => l.trim()).length;
+  let html = `<div class="planner-top">
+    <div class="card"><h3>Production orders</h3>
+      <div class="add-row">
+        <input id="addName" list="planItems" placeholder="Reaction or component, e.g. Fullerides or Antimatter Reactor Unit">
+        <input id="addQty" type="number" min="1" step="1" placeholder="Jobs / units">
+        <button class="btn" id="addBtn">Add</button>
+      </div>
+      <datalist id="planItems">${items.map(([n, , k]) => `<option value="${esc(n)}">${k}</option>`).join("")}</datalist>
+      <div class="orders tablewrap"><table><thead><tr><th class="left">Item</th><th>Quantity</th><th class="left"></th><th></th></tr></thead><tbody>${orderRows}</tbody></table></div>
+      <p class="muted small">Reactions are ordered in jobs (one job = runs per job below), components in units.
+        Complex reactions needed for components are added automatically.</p>
     </div>
-    <div class="actions">
-      <label class="field" style="flex-direction:row;align-items:center;gap:6px">Runs per job <input id="runsPerJob" type="number" min="1" style="width:90px" value="${plan.runsPerJob || 544}"></label>
-      <button class="primary" id="runPlan">Calculate plan</button>
-      <button id="savePlan">Save plan</button>
-      <button id="clearPlan">Clear</button>
-      <span class="tag">Components → complex jobs (automatic) → simple jobs → moon goo + fuel to buy. Stock is subtracted at every step.</span>
-    </div></div>`;
+    <div class="card"><h3>Stock <span class="muted small" style="text-transform:none;letter-spacing:0">· ${stockCount} lines</span></h3>
+      <textarea class="stock" id="stock" placeholder="Paste from EVE: select items in the inventory, Ctrl+A, Ctrl+C, paste here.&#10;&#10;Cadmium&#9;100.000&#10;Caesarium Cadmide&#9;50.000">${esc(state.plan.stock || "")}</textarea>
+      <p class="muted small">Stock is subtracted at every step: components, complex and simple reactions, moon goo and fuel blocks.</p>
+    </div></div>
+    <div class="planner-actions">
+      <button class="btn primary" id="runPlan">Calculate plan</button>
+      <button class="btn" id="savePlan">Save plan</button>
+      <button class="btn ghost" id="clearPlan">Clear all</button>
+      <label class="field">Runs per job <input id="runsPerJob" type="number" min="1" step="1" value="${state.plan.runsPerJob || 544}"></label>
+    </div>`;
   const res = state.planResult;
-  if (res) {
-    const valueCols = prefix => MODES.map((m, i) => ({ key: `${prefix}_${m}`, title: `${prefix === "value" ? "Value" : "Cost"} ${MODE_TEXT[m]}`, cls: m, first: i === 0, value: r => r[prefix][m] }));
-    html += `<section class="group"><h2>Complex / hybrid reactions</h2>` + tableHtml("plan_top", res.top, [
-      { key: "name", title: "Reaction", fmt: x => x }, { key: "componentNeed", title: "Needed for components" },
-      { key: "stock", title: "Stock" }, { key: "autoJobs", title: "Auto jobs" }, { key: "manualJobs", title: "Manual jobs" },
-      { key: "jobs", title: "Jobs" }, { key: "output", title: "Output" }, ...valueCols("value")]) + "</section>";
-    html += `<section class="group"><h2>Simple reactions needed</h2>` + tableHtml("plan_simple", res.simple, [
-      { key: "name", title: "Reaction", fmt: x => x }, { key: "need", title: "Needed" }, { key: "stock", title: "Stock" },
-      { key: "short", title: "Missing" }, { key: "jobs", title: "Jobs" }, { key: "output", title: "Output" }, { key: "surplus", title: "Left over" }]) + "</section>";
-    const totalRow = { name: "Total", need: null, stock: null, toBuy: null, price: {}, cost: res.shoppingTotal };
-    html += `<section class="group"><h2>Shopping list <button id="copyBuy" style="font-size:12px">Copy for EVE Multibuy</button>
-        <button id="csvBuy" style="font-size:12px">Export CSV</button></h2>`
-      + tableHtml("plan_shop", res.shopping, [
-        { key: "name", title: "Item", fmt: x => x, html: r => esc(r.name) + (res.missingPrices[r.name] ? warnIcon([res.missingPrices[r.name]]) : "") },
-        { key: "need", title: "Needed" }, { key: "stock", title: "Stock" }, { key: "toBuy", title: "To buy" },
-        ...MODES.map((m, i) => ({ key: `price_${m}`, title: `Jita ${MODE_TEXT[m]}`, cls: m, first: i === 0, fmt: unit, value: r => r.price[m] })),
-        ...valueCols("cost")]).replace("</tbody>", `<tr class="total"><td>Total</td><td></td><td></td><td></td><td class="first-of-block"></td><td></td><td></td>`
-          + MODES.map((m, i) => `<td class="${i === 0 ? "first-of-block" : ""}">${isk(res.shoppingTotal[m])}</td>`).join("") + "</tr></tbody>")
-      + `<p class="tag">${res.runsPerJob} runs per job · reaction ME ${(res.reactionMe * 100).toFixed(2)} % · component ME ${(res.componentMe * 100).toFixed(0)} % · ${res.stockItems} stock items read
-         · production value: ${MODES.map(m => `${MODE_TEXT[m]} ${isk(res.productionValue[m])}`).join(" / ")}</p>`
-      + (res.unknown.length ? `<p class="warn">Unknown items: ${esc(res.unknown.join(", "))}</p>` : "") + "</section>";
-  }
+  if (res) html += planResultHtml(res);
   $("view").innerHTML = html;
+  bindPlanner(items, res);
+}
+function planResultHtml(res) {
+  const vals = obj => `<div class="vals">${MODES.map(m => `<div><span style="color:var(--${m})">${MODE_TEXT[m]}</span><b title="${full(obj[m])}">${isk(obj[m])}</b></div>`).join("")}</div>`;
+  const margin = Object.fromEntries(MODES.map(m => [m, res.productionValue[m] - res.shoppingTotal[m]]));
+  const jobs = res.top.reduce((n, t) => n + t.jobs, 0), sjobs = res.simple.reduce((n, t) => n + t.jobs, 0);
+  let html = `<div class="kpis">
+      <div class="kpi"><div class="label">Shopping list cost</div>${vals(res.shoppingTotal)}</div>
+      <div class="kpi"><div class="label">Value of complex / hybrid output</div>${vals(res.productionValue)}</div>
+      <div class="kpi"><div class="label">Output value − purchases</div>${vals(margin)}</div>
+      <div class="kpi"><div class="label">Reaction jobs</div><div class="single">${jobs} <span class="muted small">complex/hybrid</span> · ${sjobs} <span class="muted small">simple</span></div></div>
+    </div>`;
+  const valueCols = prefix => triple(prefix === "value" ? "Output value" : "Cost", prefix, { pick: (r, m) => r[prefix][m] });
+  html += `<section class="group"><h2>Complex / hybrid reactions</h2>` + tableHtml("plan_top", res.top, [
+    { key: "name", title: "Reaction", left: true, fmt: x => esc(x) }, { key: "componentNeed", title: "For components", fmt: num },
+    { key: "stock", title: "Stock", fmt: num }, { key: "autoJobs", title: "Auto jobs", fmt: num }, { key: "manualJobs", title: "Ordered jobs", fmt: num },
+    { key: "jobs", title: "Jobs", fmt: num }, { key: "output", title: "Output", fmt: num }, ...valueCols("value")],
+    { foot: cols => totalRow(cols, "value_", res.productionValue, { jobs: jobs }) }) + "</section>";
+  html += `<section class="group"><h2>Simple reactions</h2>` + tableHtml("plan_simple", res.simple, [
+    { key: "name", title: "Reaction", left: true, fmt: x => esc(x) }, { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "Stock", fmt: num },
+    { key: "short", title: "Missing", fmt: num }, { key: "jobs", title: "Jobs", fmt: num }, { key: "output", title: "Output", fmt: num },
+    { key: "surplus", title: "Left over", fmt: num }]) + "</section>";
+  html += `<section class="group"><h2>Shopping list <button class="btn small" id="copyBuy">Copy for EVE Multibuy</button>
+      <button class="btn small ghost" id="csvBuy">Export CSV</button></h2>`
+    + tableHtml("plan_shop", res.shopping, [
+      { key: "name", title: "Item", left: true, html: r => esc(r.name) + (res.missingPrices[r.name] ? warnIcon([res.missingPrices[r.name]]) : "") },
+      { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "Stock", fmt: num }, { key: "toBuy", title: "To buy", fmt: num },
+      ...triple("Jita price per unit", "price", { fmt: unit, pick: (r, m) => r.price[m] }),
+      ...valueCols("cost")], {
+        foot: cols => totalRow(cols, "cost_", res.shoppingTotal),
+      })
+    + `<p class="muted small">${res.runsPerJob} runs per job · reaction ME ${(res.reactionMe * 100).toFixed(2)} % · component ME ${(res.componentMe * 100).toFixed(0)} % · ${res.stockItems} stock items recognised</p>`
+    + (res.unknown.length ? `<p class="warn">⚠ Unknown items: ${esc(res.unknown.join(", "))}</p>` : "") + "</section>";
+  return html;
+}
+// "Total" row under a table: sums per Buy/Split/Sell for columns named <prefix><mode>
+function totalRow(cols, prefix, totals, extra = {}) {
+  return `<tr class="total"><td class="left">Total</td>` + cols.slice(1).map(c => {
+    const cls = c.sep ? "sep" : "";
+    if (c.key.startsWith(prefix)) { const v = totals[c.key.slice(prefix.length)]; return `<td class="${cls}" title="${full(v)}">${isk(v)}</td>`; }
+    if (c.key in extra) return `<td class="${cls}">${num(extra[c.key])}</td>`;
+    return `<td class="${cls}"></td>`;
+  }).join("") + "</tr>";
+}
+function bindPlanner(items, res) {
+  const valid = new Map(items.map(([n, key]) => [n.toLowerCase(), [n, key]]));
+  const add = () => {
+    const hit = valid.get($("addName").value.trim().toLowerCase());
+    const n = parseInt($("addQty").value, 10);
+    if (!hit) return status("Pick a reaction or component from the list.", "error");
+    if (!(n > 0)) return status("Enter a quantity.", "error");
+    state.plan = readPlan();
+    state.plan[hit[1]][hit[0]] = (state.plan[hit[1]][hit[0]] || 0) + n;
+    status(`Added ${n} × ${hit[0]}.`);
+    render();
+    $("addName").focus();
+  };
+  $("addBtn").onclick = add;
+  $("addQty").onkeydown = e => { if (e.key === "Enter") add(); };
+  $("addName").onkeydown = e => { if (e.key === "Enter") $("addQty").focus(); };
+  $("addName").oninput = () => {
+    const hit = valid.get($("addName").value.trim().toLowerCase());
+    $("addQty").placeholder = hit ? (hit[1] === "jobs" ? "Jobs" : "Units") : "Jobs / units";
+  };
+  for (const b of document.querySelectorAll("[data-remove]")) b.onclick = () => {
+    state.plan = readPlan(); delete state.plan[b.dataset.remove][b.dataset.name]; render();
+  };
   $("runPlan").onclick = () => runPlan(false);
   $("savePlan").onclick = () => runPlan(true);
-  $("clearPlan").onclick = () => { state.plan = { runsPerJob: 544, jobs: {}, components: {}, stock: "" }; state.planResult = null; render(); };
-  if ($("copyBuy")) {
+  $("clearPlan").onclick = () => {
+    if (!confirm("Remove all orders and the stock list?")) return;
+    state.plan = { runsPerJob: 544, jobs: {}, components: {}, stock: "" }; state.planResult = null; render();
+  };
+  if (res) {
     $("copyBuy").onclick = async () => {
       const text = res.shopping.filter(x => x.toBuy > 0).map(x => `${x.name}\t${x.toBuy}`).join("\n");
       try { await navigator.clipboard.writeText(text); status("Shopping list copied – paste it into EVE's Multibuy window."); }
@@ -419,31 +628,30 @@ async function renderPlanner() {
 }
 function readPlan() {
   const plan = { runsPerJob: Number($("runsPerJob").value) || 544, jobs: {}, components: {}, stock: $("stock").value };
-  for (const el of document.querySelectorAll("input[data-plan]")) {
+  for (const el of document.querySelectorAll("input[data-order]")) {
     const n = parseInt(el.value, 10);
-    if (n > 0) plan[el.dataset.plan][el.dataset.name] = n;
+    if (n > 0) plan[el.dataset.order][el.dataset.name] = n;
   }
   return plan;
 }
 async function runPlan(save) {
   state.plan = readPlan();
   $("runPlan").disabled = true;
-  status("Calculating plan…");
+  status("Calculating plan…", "busy");
   try {
     const data = await api("/api/plan", { settings: formSettings(), plan: state.plan, save });
     state.planResult = data.plan;
-    status(`Plan calculated ${new Date().toLocaleTimeString()}${save ? " and saved" : ""} · CCP SDE build ${data.sde.build}`
-           + (data.notes || []).map(n => " · " + n).join(""));
+    status(`Plan · ${new Date().toLocaleTimeString()}${save ? " · saved" : ""} · CCP SDE ${data.sde.build}` + (data.notes || []).map(n => " · " + n).join(""));
     render();
-  } catch (e) { status(e.message, true); const b = $("runPlan"); if (b) b.disabled = false; }
+  } catch (e) { status(e.message, "error"); if ($("runPlan")) $("runPlan").disabled = false; }
 }
 
 (async () => {
   try {
     META = await api("/api/meta");
-    buildForm(); buildMainTabs(); render();
+    buildSettings(); buildNav(); render();
     status("Ready.");
-  } catch (e) { status(e.message, true); }
+  } catch (e) { status(e.message, "error"); }
 })();
 </script>
 </body>
