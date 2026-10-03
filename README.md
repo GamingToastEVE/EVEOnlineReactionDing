@@ -136,6 +136,14 @@ Start automatisch in den Datenordner bzw. in die Datenbank übernommen.
 In der Kommandozeile gibt es dafür: `reactionding storage` (zeigt den Speicherort),
 `reactionding storage --set user=eve password=geheim port=3306`, `--off` und `--on`.
 
+## Auf einem Server (z. B. Railway)
+
+`railway.json` / `Procfile` starten `python -m reactionding serve --host 0.0.0.0`; der Port kommt
+aus der Umgebungsvariable `PORT`. Repo in Railway verbinden, deployen, unter *Settings → Networking*
+eine Domain erzeugen. Daten liegen dort im Ordner `data/` und gehen bei einem neuen Deploy verloren
+(für Dauerbetrieb eine MariaDB dazubuchen und den Login unter Settings → Storage eintragen).
+Es gibt kein Login – jeder mit dem Link kann den Plan sehen und ändern.
+
 ## Kommandozeile
 
 ```bash

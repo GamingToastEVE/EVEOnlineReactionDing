@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -483,8 +484,10 @@ def build_parser():
     sto.set_defaults(func=cmd_storage)
 
     srv = sub.add_parser("serve", help="start the web interface")
-    srv.add_argument("--host", default="127.0.0.1")
-    srv.add_argument("--port", type=int, default=8765)
+    srv.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"),
+                     help="0.0.0.0 = reachable from other devices (default: 127.0.0.1, env HOST)")
+    srv.add_argument("--port", type=int, default=int(os.environ.get("PORT") or 8765),
+                     help="default 8765 or env PORT (Railway, Render, ...)")
     srv.add_argument("--open", action="store_true", help="open the interface in the web browser")
     srv.set_defaults(func=cmd_serve)
     return p
