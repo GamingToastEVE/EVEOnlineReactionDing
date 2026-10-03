@@ -189,6 +189,15 @@ class PreviewTest(unittest.TestCase):
             self.assertAlmostEqual(v["profit"][m], v["value"][m] - v["cost"][m])
         self.assertGreater(v["cost"]["buy"], 0)
 
+    def test_leftover_simple_products_count_as_value(self):
+        from reactionding import production
+        v = production.preview(RECIPES, S, {"runsPerJob": 544, "jobs": {"Complex X": 1}, "components": {}},
+                               components=COMPONENTS, prices=PRICES)
+        left = {x["name"]: x for x in v["products"] if x["leftover"]}
+        # 1 simple job makes 108800 Simple A, the complex job needs 52964 of it
+        self.assertEqual(left["Simple A"]["quantity"], 108800 - 52964)
+        self.assertEqual([j["name"] for j in v["jobList"]], ["Simple A", "Complex X"])
+
 
 if __name__ == "__main__":
     unittest.main()

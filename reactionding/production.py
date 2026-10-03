@@ -281,18 +281,34 @@ def preview(recipes, settings, state, components=None, prices=None):
     for name, n in manual.items():
         if recipes.get(name, {}).get("group") == "simple":
             products[name] = products.get(name, 0) + n * runs * recipes[name]["out"]
+    # full jobs make more simple products than the complex jobs need - the rest stays in stock
+    leftovers = {}
+    for x in result["simple"]:
+        extra = x["surplus"] - manual.get(x["name"], 0) * runs * recipes[x["name"]]["out"]
+        if extra > 0:
+            leftovers[x["name"]] = extra
+    missing_names = sorted(n for n in leftovers if n not in prices)
+    if missing_names:
+        prices = {**prices, **prices_by_name(missing_names)}
     value = {m: 0.0 for m in MODES}
     lines = []
-    for name, qty in sorted(products.items()):
+    for name, qty, leftover in ([(n, q, False) for n, q in sorted(products.items())]
+                                + [(n, q, True) for n, q in sorted(leftovers.items())]):
         p = prices.get(name) or {}
         v = {m: qty * p[m] if p.get(m) is not None else None for m in MODES}
         for m in MODES:
             value[m] += v[m] or 0.0
-        lines.append({"name": name, "quantity": qty, "value": v})
+        lines.append({"name": name, "quantity": qty, "value": v, "leftover": leftover})
     cost = result["shoppingTotal"]
     stages = 3 if comps else 2 if any(t["group"] == "complex" and t["jobs"] for t in result["top"]) else 1
     jobs = sum(result["jobsPerReaction"].values())
-    return {"cost": cost, "value": value, "products": lines,
+    job_lines = [{"name": n, "group": recipes[n]["group"], "jobs": j, "output": j * runs * recipes[n]["out"]}
+                 for n, j in result["jobsPerReaction"].items() if j]
+    job_lines.sort(key=lambda x: ({"simple": 0, "hybrid": 1, "complex": 1}.get(x["group"], 2), x["name"]))
+    materials = [{"name": x["name"], "quantity": x["toBuy"], "price": x["price"], "cost": x["cost"]}
+                 for x in result["shopping"] if x["toBuy"]]
+    return {"cost": cost, "value": value, "products": lines, "jobList": job_lines, "materials": materials,
+            "componentsBuilt": [{"name": n, "units": u} for n, u in comps.items() if n in components],
             "profit": {m: value[m] - cost[m] for m in MODES},
             "margin": {m: (value[m] / cost[m] - 1) * 100 if cost[m] else None for m in MODES},
             "months": stages, "jobs": jobs, "shoppingItems": len(result["shopping"]),

@@ -154,6 +154,13 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  .hint { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(217,164,65,.1); border: 1px solid rgba(217,164,65,.35); }
+  details.calc { margin-top: 10px; }
+  details.calc > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+  .calc-steps { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 10px; font-size: 13px; line-height: 1.5; }
+  table.mini.left { margin-top: 6px; }
+  table.mini.left td { padding: 2px 10px; }
+  table.mini.left td:first-child { text-align: left; }
   #tourBtn { flex: none; }
   .tour { position: fixed; inset: 0; z-index: 90; }
   .tour-hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(5, 8, 12, .72), 0 0 0 2px var(--accent);
@@ -272,13 +279,24 @@
   .gstage.past { opacity: .4; }
   .gstage.now { box-shadow: 0 0 0 2px var(--text); }
   .gstage.future { background: none; border: 1px dashed currentColor; color: var(--muted); }
-  dialog#createDlg { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(860px, 94vw); }
+  dialog#createDlg { max-height: 92vh; overflow-y: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(860px, 94vw); }
   dialog#createDlg::backdrop { background: rgba(0,0,0,.6); }
   .dlg { padding: 20px 22px; display: grid; gap: 12px; }
   .dlg h2 { margin: 0; } .dlg h3 { margin: 4px 0 0; font-size: 14px; }
   .dlg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .cp-list { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
-  .cp-list li { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 3px 6px 3px 12px; }
+  .cp-cats { display: grid; gap: 6px; }
+  .cp-cat { display: grid; grid-template-columns: 170px minmax(0, 1fr) 90px auto; gap: 8px; align-items: center; cursor: default; }
+  .cp-cat select, .cp-cat input { width: 100%; min-width: 0; }
+  .cp-cat input[type=number] { text-align: right; }
+  .cp-label { display: flex; flex-direction: column; line-height: 1.2; }
+  .cp-label small { color: var(--muted); font-size: 11.5px; }
+  .cp-search { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 2px; }
+  .cp-msg:empty { display: none; }
+  .cp-orders td { padding: 5px 10px; }
+  .qty { display: inline-flex; gap: 4px; align-items: center; }
+  .qty input { width: 80px; text-align: right; padding: 4px 6px; }
+  .qty .btn { padding: 2px 9px; font-size: 15px; line-height: 1.2; }
+  @media (max-width: 700px) { .cp-cat { grid-template-columns: minmax(0, 1fr) 70px auto; } .cp-cat .cp-label { grid-column: 1 / -1; } }
   .cp-preview { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); transition: opacity .2s; }
   .cp-preview.loading { opacity: .55; }
   .small-money { margin-top: 0; } .small-money .m-tile > b { font-size: 18px; } .small-money .m-tile.big > b { font-size: 21px; }
@@ -1182,6 +1200,8 @@ function overviewHtml() {
 }
 
 // ----- create plan dialog -----
+const CP_CATS = [["simple", "Simple reactions", "jobs"], ["hybrid", "Hybrid reactions", "jobs"], ["complex", "Complex reactions", "jobs"],
+                 ["component", "T2 components", "units"], ["capital", "Capital components", "units"]];
 function createDialogHtml() {
   const today = new Date(), id = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   return `<dialog id="createDlg"><form method="dialog" class="dlg" onsubmit="return false">
@@ -1193,8 +1213,21 @@ function createDialogHtml() {
       <label class="field"${tipAttr("How many reaction jobs you can run at the same time.")}>Reaction slots (0 = no limit)<input id="cpSlots" type="number" min="0" value="${state.campaign.slots ?? 30}"></label>
     </div>
     <h3>What do you want to make?</h3>
-    <div class="add-row"><div class="suggest-wrap"><input id="cpName" autocomplete="off" placeholder="Reaction or component – type to search"></div><input id="cpQty" type="number" min="1" placeholder="Jobs / units"><button type="button" class="btn" id="cpAdd">Add</button></div>
-    <ul class="cp-list" id="cpList"><li class="muted">Nothing added yet.</li></ul>
+    <div class="cp-cats">${CP_CATS.map(([k, label, unitName]) => {
+      const names = planItems().filter(([, , kind]) => kind === k).map(([n]) => n);
+      return `<div class="cp-cat"${tipAttr(`${label}: ${RUN_MONTHS[k]}-month run, quantity in ${unitName}.`)}>
+        <span class="cp-label"><b>${label}</b><small>${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""} · ${unitName}</small></span>
+        <select data-cat="${k}"><option value="">Choose… (${names.length})</option>${names.map(n => `<option>${esc(n)}</option>`).join("")}</select>
+        <input type="number" min="1" step="1" value="1" data-catqty="${k}" aria-label="${unitName}">
+        <button type="button" class="btn" data-catadd="${k}">Add</button></div>`;
+    }).join("")}
+      <div class="cp-cat cp-search"><span class="cp-label"><b>Search all</b><small>type a name</small></span>
+        <div class="suggest-wrap"><input id="cpName" autocomplete="off" placeholder="e.g. Fullerides or Antimatter Reactor Unit"></div>
+        <input id="cpQty" type="number" min="1" step="1" value="1" aria-label="quantity"><button type="button" class="btn" id="cpAdd">Add</button></div>
+    </div>
+    <div class="cp-msg note" id="cpMsg"></div>
+    <div class="tablewrap cp-orders"><table><thead><tr><th class="left">Your orders</th><th>Quantity</th><th class="left">Run</th><th></th></tr></thead>
+      <tbody id="cpList"></tbody></table></div>
     <label class="field">Your stock (optional, paste from EVE)<textarea id="cpStock" class="stock" style="height:90px"></textarea></label>
     <div class="cp-preview" id="cpPreview"><span class="muted small">Add something to see costs and profit live.</span></div>
     <label class="field inline"${tipAttr("On: the new run is added to your plan. Off: the whole plan is replaced (export it first if you want to keep it).")}><input type="checkbox" id="cpKeep" checked> keep the current plan's history (only add a new run)</label>
@@ -1205,6 +1238,24 @@ function priceAge(st) {
   if (!st || st.age == null) return "";
   const min = Math.round(st.age / 60);
   return `Jita prices ${min < 1 ? "just updated" : min + " min old"} · refresh every ${Math.round(st.refreshSeconds / 60)} min` + (st.error ? " · ESI unreachable, using last prices" : "");
+}
+function calcHtml(v) {
+  const pm = PM();
+  const kindName = { simple: "simple", hybrid: "hybrid", complex: "complex" };
+  return `<ol class="calc-steps">
+    <li><b>Jobs.</b> Every job runs the full runs per job you set.
+      Components are turned into the complex products they need, complex reactions into the simple reactions they need (minus your stock), rounded up to whole jobs.
+      <table class="mini left"><tbody>${v.jobList.map(j => `<tr><td class="left">${esc(j.name)} <span class="kind">${kindName[j.group] || j.group}</span></td><td>${j.jobs} job${j.jobs > 1 ? "s" : ""}</td><td>${num(j.output)} units</td></tr>`).join("")}
+      ${v.componentsBuilt.map(c => `<tr><td class="left">${esc(c.name)} <span class="kind">component</span></td><td></td><td>${num(c.units)} units</td></tr>`).join("")}</tbody></table></li>
+    <li><b>Material costs</b> = every moon material and fuel block all these jobs need (with your rig bonus), minus your stock, × ${pmText()}.
+      <table class="mini left"><tbody>${v.materials.map(m => `<tr><td class="left">${esc(m.name)}</td><td>${num(m.quantity)} ×</td><td>${unit(m.price[pm])}</td><td>= ${isk(m.cost[pm])}</td></tr>`).join("")}
+      <tr class="total"><td class="left">Total</td><td></td><td></td><td>${isk(v.cost[pm])}</td></tr></tbody></table></li>
+    <li><b>Value of the products</b> = what you have at the end × ${pmText()}: the ordered products, plus complex/simple products that are left over because jobs always run completely.
+      <table class="mini left"><tbody>${v.products.map(x => `<tr><td class="left">${esc(x.name)}${x.leftover ? ' <span class="kind">left over</span>' : ""}</td><td>${num(x.quantity)} units</td><td>= ${isk(x.value[pm])}</td></tr>`).join("")}
+      <tr class="total"><td class="left">Total</td><td></td><td>${isk(v.value[pm])}</td></tr></tbody></table></li>
+    <li><b>Profit</b> = value − material costs = ${isk(v.value[pm])} − ${isk(v.cost[pm])} = <b class="${sign(v.profit[pm])}">${isk(v.profit[pm])}</b>.
+      Not included: job install costs (system cost index, facility tax, SCC) and market fees – the Reactions tab shows those per job.</li>
+  </ol>`;
 }
 function previewHtml(v, prices) {
   const pm = PM();
@@ -1217,17 +1268,48 @@ function previewHtml(v, prices) {
     </div>
     <table class="mini"><thead><tr><th class="left"></th>${MODES.map(m => `<th class="${m}">${MODE_TEXT[m]}</th>`).join("")}</tr></thead><tbody>
       ${row("Costs", v.cost)}${row("Value", v.value)}${row("Profit", v.profit, true)}</tbody></table>
+    ${(() => {
+      const left = v.products.filter(x => x.leftover);
+      if (!left.length) return "";
+      const lv = left.reduce((n, x) => n + (x.value[pm] || 0), 0);
+      return `<p class="small hint">💡 ${left.length} simple product${left.length > 1 ? "s are" : " is"} left over (${isk(lv)}), because a reaction job always runs completely.
+        One simple job feeds about two complex jobs, so even job counts use them best. The rest stays in your stock and is counted as value.</p>`;
+    })()}
+    <details class="calc"><summary>How is this calculated?</summary>${calcHtml(v)}</details>
     <p class="muted small">${priceAge(prices)}. Without job install costs and market fees.
       ${v.unknown.length ? `<span class="note">Unknown: ${esc(v.unknown.join(", "))}</span>` : ""}
       ${Object.keys(v.missingPrices).length ? warnIcon(Object.entries(v.missingPrices).map(([n, t]) => `${n}: ${t}`)) : ""}</p>`;
 }
 function bindCreateDialog() {
   const items = planItems(), valid = new Map(items.map(([n, key, k]) => [n.toLowerCase(), [n, key, k]]));
+  const kindOf = Object.fromEntries(items.map(([n, key, k]) => [n, [key, k]]));
   const orders = { jobs: {}, components: {} };
+  const msg = text => { $("cpMsg").textContent = text || ""; };
   const draw = () => {
-    const all = [...Object.entries(orders.jobs).map(x => [...x, "jobs"]), ...Object.entries(orders.components).map(x => [...x, "components"])];
-    $("cpList").innerHTML = all.length ? all.map(([n, q, key]) => `<li>${q} × ${esc(n)} <span class="kind">${key === "jobs" ? "jobs" : "units"}</span> <button type="button" class="x" data-cprm="${key}" data-name="${esc(n)}">×</button></li>`).join("") : '<li class="muted">Nothing added yet.</li>';
-    for (const b of $("cpList").querySelectorAll("[data-cprm]")) b.onclick = () => { delete orders[b.dataset.cprm][b.dataset.name]; draw(); };
+    const all = [...Object.entries(orders.jobs), ...Object.entries(orders.components)];
+    $("cpList").innerHTML = all.length ? all.map(([n, q]) => {
+      const [key, k] = kindOf[n];
+      return `<tr><td class="left">${esc(n)} <span class="kind">${k}</span></td>
+        <td><div class="qty"><button type="button" class="btn small ghost" data-step="-1" data-name="${esc(n)}" aria-label="less">−</button>
+          <input type="number" min="1" step="1" value="${q}" data-cpqty="${esc(n)}">
+          <button type="button" class="btn small ghost" data-step="1" data-name="${esc(n)}" aria-label="more">+</button></div></td>
+        <td class="left muted small">${key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
+        <td><button type="button" class="x" data-cprm="${esc(n)}" title="Remove">×</button></td></tr>`;
+    }).join("") : '<tr><td class="left muted" colspan="4">Nothing added yet – pick something above.</td></tr>';
+    for (const b of $("cpList").querySelectorAll("[data-cprm]")) b.onclick = () => { delete orders[kindOf[b.dataset.cprm][0]][b.dataset.cprm]; draw(); };
+    for (const b of $("cpList").querySelectorAll("[data-step]")) b.onclick = () => {
+      const n = b.dataset.name, key = kindOf[n][0];
+      orders[key][n] = Math.max(1, (orders[key][n] || 1) + Number(b.dataset.step));
+      $("cpList").querySelector(`input[data-cpqty="${CSS.escape(n)}"]`).value = orders[key][n];
+      preview();
+    };
+    for (const el of $("cpList").querySelectorAll("input[data-cpqty]")) {
+      el.oninput = () => {   // live while typing, without re-drawing (keeps the cursor)
+        const v = parseInt(el.value, 10);
+        if (v > 0) { orders[kindOf[el.dataset.cpqty][0]][el.dataset.cpqty] = v; preview(); }
+      };
+      el.onchange = () => { if (!(parseInt(el.value, 10) > 0)) el.value = orders[kindOf[el.dataset.cpqty][0]][el.dataset.cpqty]; };
+    }
     preview();
   };
   let timer = null, seq = 0;
@@ -1246,18 +1328,33 @@ function bindCreateDialog() {
     }, 350);
   };
   $("cpStock").oninput = preview; $("cpRuns").oninput = preview;
+  const addItem = (name, qty) => {
+    if (!(qty > 0)) return msg("Enter a quantity of at least 1."), false;
+    const [key] = kindOf[name];
+    orders[key][name] = (orders[key][name] || 0) + qty;
+    msg(""); draw();
+    return true;
+  };
+  for (const sel of document.querySelectorAll("#createDlg select[data-cat]")) {
+    const k = sel.dataset.cat, qty = document.querySelector(`#createDlg [data-catqty="${k}"]`);
+    const add = () => {
+      if (!sel.value) return msg("Choose an entry in the dropdown first.");
+      if (addItem(sel.value, parseInt(qty.value, 10))) { sel.value = ""; qty.value = 1; sel.focus(); }
+    };
+    sel.onchange = () => { if (sel.value) { qty.focus(); qty.select(); } };
+    qty.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); add(); } };
+    document.querySelector(`#createDlg [data-catadd="${k}"]`).onclick = add;
+  }
   const add = () => {
-    const hit = valid.get($("cpName").value.trim().toLowerCase()), n = parseInt($("cpQty").value, 10);
-    if (!hit) return status("Pick a reaction or component from the list.", "error");
-    if (!(n > 0)) return status("Enter a quantity.", "error");
-    orders[hit[1]][hit[0]] = (orders[hit[1]][hit[0]] || 0) + n;
-    $("cpName").value = ""; $("cpQty").value = ""; $("cpName").focus(); draw();
+    const hit = valid.get($("cpName").value.trim().toLowerCase());
+    if (!hit) return msg("Pick a reaction or component from the search list.");
+    if (addItem(hit[0], parseInt($("cpQty").value, 10))) { $("cpName").value = ""; $("cpQty").value = 1; $("cpName").focus(); }
   };
   $("cpCancel").onclick = () => $("createDlg").close();
   $("cpAdd").onclick = add;
   draw();
   $("cpQty").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); add(); } };
-  attachSuggest($("cpName"), items, () => $("cpQty").focus());
+  attachSuggest($("cpName"), items, () => { $("cpQty").focus(); $("cpQty").select(); });
   $("cpCreate").onclick = async () => {
     if (!orderCount(orders)) return status("Add at least one reaction or component.", "error");
     const id = $("cpMonth").value || new Date().toISOString().slice(0, 7);
