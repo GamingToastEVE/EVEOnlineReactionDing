@@ -153,7 +153,24 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  @media (max-width: 700px) {
+    .topbar { flex-wrap: wrap; height: auto; padding: 8px 12px 0; gap: 4px 12px; }
+    .nav { height: 40px; order: 3; width: 100%; overflow-x: auto; }
+    .nav button { white-space: nowrap; padding: 0 10px; }
+    .status { max-width: 60%; }
+    main { padding-left: 10px; padding-right: 10px; }
+    .planner-top { grid-template-columns: minmax(0, 1fr); }
+    .add-row { grid-template-columns: minmax(0, 1fr) 90px auto; }
+    .orders input[type=number] { width: 70px; }
+    .stepper { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .dlg-grid { grid-template-columns: 1fr; }
+    .rx .tick + .track { width: 56px; }
+    .m-tile { flex: 1 1 140px; } .m-tile > b { font-size: 18px; } .m-tile.big > b { font-size: 21px; }
+  }
   .planner-top + .card, .step-body > .card { margin-top: 14px; }
+  .run-strip { margin-top: 10px; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .cta { margin-top: 12px; display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 18px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-dim); }
+  .cta div { display: grid; gap: 4px; }
   .toolbar .seg .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 4px; vertical-align: middle; }
   details.opts { position: relative; }
   details.opts > summary { list-style: none; }
@@ -207,9 +224,10 @@
   details.check-group > summary::-webkit-details-marker { display: none; }
   details.check-group > label { padding-left: 26px; }
   .bars { display: flex; gap: 14px; align-items: flex-end; height: 210px; padding: 10px 4px 0; overflow-x: auto; }
-  .bar-month { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 76px; height: 100%; cursor: pointer; }
+  .bar-month { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 1 140px; min-width: 90px; height: 100%; cursor: pointer; border-radius: 6px; padding-top: 4px; }
+  .bar-month:hover { background: var(--panel2); }
   .bar-pair { flex: 1; display: flex; gap: 4px; align-items: flex-end; width: 100%; justify-content: center; }
-  .bar-pair .b { width: 24px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar-pair .b { width: 34px; border-radius: 4px 4px 0 0; min-height: 2px; }
   .b.cost, .legend i.cost { background: #c8575c; }
   .b.value, .legend i.value { background: var(--pos); }
   .b.value.planned, .legend i.value.planned { background: repeating-linear-gradient(45deg, var(--pos) 0 5px, transparent 5px 9px); border: 1px solid var(--pos); }
@@ -689,8 +707,9 @@ function progress(p) {
   const started = jobs.reduce((n, l) => n + Math.min(l.started, l.scheduled), 0) + p.stage3.reduce((n, x) => n + Math.min(x.done, x.buildable), 0);
   const done = jobs.reduce((n, l) => n + Math.min(l.done, l.scheduled), 0) + p.stage3.reduce((n, x) => n + Math.min(x.done, x.buildable), 0);
   const buyLeft = p.shopping.filter(x => x.remaining > 0).length;
-  const cost = (p.spent || 0) + (p.shoppingTotal[PM()] || 0);
-  return { sched, started, done, buyLeft, cost, profit: (p.plannedValue[PM()] || 0) - cost,
+  const own = (p.plannedInputValue || {})[PM()] || 0;
+  const cost = (p.spent || 0) + (p.shoppingTotal[PM()] || 0) + own;
+  return { sched, started, done, buyLeft, cost, own, profit: (p.plannedValue[PM()] || 0) - cost,
            waiting: jobs.reduce((n, l) => n + l.blocked + l.postponed, 0) };
 }
 function stepState(step, p, month) {
@@ -700,7 +719,8 @@ function stepState(step, p, month) {
     const n = orderCount(month.orders);
     return { done: p.stockItems > 0 && (n > 0 || g.sched > 0), sub: `${n} order${n === 1 ? "" : "s"} · ${p.stockItems ? p.stockItems + " stock items" : "no stock pasted"}` };
   }
-  if (step === "buy") return { done: !g.buyLeft, sub: g.buyLeft ? `${g.buyLeft} items left · ${isk(p.shoppingTotal[PM()])}` : "everything bought" };
+  if (step === "buy") return p.shopping.length ? { done: !g.buyLeft, sub: g.buyLeft ? `${g.buyLeft} items left · ${isk(p.shoppingTotal[PM()])}` : "everything bought" }
+                                                : { done: false, sub: "nothing to buy" };
   if (step === "jobs") return { done: g.sched > 0 && g.done >= g.sched, sub: g.sched ? `${g.started}/${g.sched} started · ${g.done} done` : "no jobs" };
   return { done: !!month.closed, sub: month.closed ? "closed" : "when all jobs are delivered" };
 }
@@ -764,14 +784,26 @@ function monthHeadHtml(month, p) {
     ${p && p.waves.stage3 && p.stage3.length ? ` · components of the run of ${monthName(p.waves.stage3, true)}` : ""}</div></div>`;
   if (!p) return html + "</div>";
   const g = progress(p), pm = PM();
+  if (!g.sched && !g.waiting && !orderCount(month.orders) && !month.closed) {
+    return html + `<div class="cta"><div><b>Nothing planned for ${monthName(month.id)} yet.</b>
+      <span class="muted">Create a plan: pick what you want to make and see costs and profit right away.</span></div>
+      <button class="btn primary" data-create>＋ Create plan</button></div></div>`;
+  }
   html += `<div class="money">
-    <div class="m-tile"><span>Costs</span>${money(g.cost)}<small>${isk(p.spent)} spent + ${isk(p.shoppingTotal[pm])} still to buy</small></div>
+    <div class="m-tile"><span>Costs this month</span>${money(g.cost)}<small>${isk(p.spent)} spent + ${isk(p.shoppingTotal[pm])} to buy${g.own ? ` + ${isk(g.own)} own products from stock` : ""}</small></div>
     <div class="m-op">→</div>
     <div class="m-tile"><span>Value of the products</span>${money(p.plannedValue[pm])}<small>${isk(p.producedValue[pm])} already finished</small></div>
     <div class="m-op">=</div>
-    <div class="m-tile big"><span>Expected profit</span>${money(g.profit, true)}<small>${g.cost ? pct(g.profit / g.cost * 100) + " on costs" : ""} · ${pmText()}</small></div>
+    <div class="m-tile big"><span>Expected profit this month</span>${money(g.profit, true)}<small>${g.cost ? pct(g.profit / g.cost * 100) + " on costs · " : ""}${pmText()}</small></div>
     <div class="m-tile"><span>Jobs done</span><b>${g.done} / ${g.sched}</b>${bar(g.done, g.sched)}<small>${g.started} started${g.waiting ? ` · <span class="note">${g.waiting} waiting</span>` : ""}</small></div>
   </div>`;
+  const r = state.runPreview;
+  if (r && orderCount(month.orders)) {
+    const end = Array.from({ length: r.months - 1 }).reduce(nextId, month.id);
+    html += `<div class="run-strip"><span class="muted">Whole run started in ${monthName(month.id, true)}${r.months > 1 ? ` (until ${monthName(end, true)})` : ""}:</span>
+      materials ${money(r.cost[pm])} → products ${money(r.value[pm])} = profit ${money(r.profit[pm], true)}
+      <span class="muted small">${r.margin[pm] != null ? pct(r.margin[pm]) + " · " : ""}if everything is bought at today's prices</span></div>`;
+  }
   return html + "</div>";
 }
 
@@ -794,7 +826,7 @@ function stepPlanHtml(month, p) {
     if (p.stage1.length) parts.push(`<li><span class="stage s1">1</span> ${p.stage1.reduce((n, l) => n + l.count, 0)} simple/hybrid jobs <span class="muted">(${monthName(month.id, true)})</span></li>`);
     if (p.stage2.length) parts.push(`<li><span class="stage s2">2</span> ${p.stage2.reduce((n, l) => n + l.count, 0)} complex jobs from the run of ${monthName(p.waves.stage2 || month.id, true)}</li>`);
     if (p.stage3.length) parts.push(`<li><span class="stage s3">3</span> ${p.stage3.reduce((n, x) => n + x.units, 0)} components from the run of ${monthName(p.waves.stage3 || month.id, true)}</li>`);
-    pipe = `<div class="card"><h3>This month</h3>${parts.length ? `<ul class="pipe">${parts.join("")}</ul>` : '<p class="muted">Nothing to do yet.</p>'}
+    if (parts.length) pipe = `<div class="card"><h3>This month</h3><ul class="pipe">${parts.join("")}</ul>
       <p class="muted small">Simple reactions run first. Complex reactions start the month after, when their inputs are in stock. Components come in the third month.</p></div>`;
   }
   return `<div class="planner-top">
@@ -810,8 +842,15 @@ function stepPlanHtml(month, p) {
     <div class="card"><h3>Your stock at the start of ${monthName(month.id, true)}</h3>
       <textarea class="stock" id="stock" ${ro ? "disabled" : ""} placeholder="In EVE: open the inventory, Ctrl+A, Ctrl+C – then paste here (Ctrl+V).">${esc(month.stock || "")}</textarea>
       <p class="muted small">${p ? `${p.stockItems} items recognised. ` : ""}Paste again every month – including the products of last month's finished jobs.</p>
+      ${!ro && prevProduced() ? `<button class="btn small" id="addProduced" title="${esc(Object.entries(prevProduced()).map(([n, q]) => `${num(q)} ${n}`).join("\n"))}">＋ Add the finished products of ${monthName(state.campaign.months[state.monthIndex - 1].id, true)}</button>` : ""}
     </div></div>${pipe}
-    ${ro ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="buy">Next: buy materials →</button></div>`}`;
+    ${ro || !pipe ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="buy">Next: buy materials →</button></div>`}`;
+}
+
+function prevProduced() {
+  const prev = state.campaign.months[state.monthIndex - 1];
+  const produced = prev && prev.summary && prev.summary.produced;
+  return produced && Object.keys(produced).length ? produced : null;
 }
 
 // ----- step 2: shopping -----
@@ -823,7 +862,7 @@ function stepBuyHtml(month, p) {
     { key: "name", title: "Item", left: true, html: r => `<span class="${r.remaining ? "" : "struck"}">${esc(r.name)}</span>` + (r.kind !== "raw" ? ` <span class="kind">${r.kind}</span>` : "") + (r.note ? warnIcon([r.note]) : "") },
     { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "In stock", fmt: num }, { key: "toBuy", title: "To buy", fmt: num },
     { key: "bought", title: "Bought", html: r => `<input class="track" type="number" min="0" data-buy="${esc(r.name)}" data-field="qty" value="${r.bought || ""}" placeholder="0" ${ro ? "disabled" : ""}>` },
-    { key: "paid", title: "Paid / unit", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid || ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
+    { key: "paid", title: "Paid / unit", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid ? +r.paid.toFixed(2) : ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
     { key: "remaining", title: "Still to buy", html: r => r.remaining ? num(r.remaining) : '<span class="pos">✓</span>' },
     { key: "price", title: `${pmText()} / unit`, cls: pm, sep: true, value: r => r.price[pm], fmt: unit },
     { key: "cost", title: "Cost of the rest", cls: pm, value: r => r.cost[pm] },
@@ -867,7 +906,7 @@ function stepJobsHtml(month, p) {
           <span class="muted small">of ${l.scheduled}</span>` : `<span class="note small">${wait} waiting – moves to next month</span>`}
         </div>`;
       }).join("") + `</div>` +
-      (n === 2 && p.blocked ? `<p class="warn">⚠ ${p.blocked} complex jobs are blocked: their simple products are not in your stock. Finish the simple reactions, paste the stock again – until then they move to the next month.</p>` : "") +
+      (n === 2 && p.blocked ? `<p class="warn">⚠ ${p.blocked} complex jobs are blocked: their simple products are not in your stock. Finish the simple reactions and paste your stock in step 1 (or use “Add the finished products”) – until then they move to the next month.</p>` : "") +
       `</section>`;
   }
   if (p.stage3.length) {
@@ -927,19 +966,21 @@ function overviewHtml() {
   if (!rows.length) return '<div class="empty">No months yet.</div>';
   const sum = f => rows.reduce((n, r) => n + (f(r) || 0), 0);
   const spent = sum(r => r.spent), value = sum(r => (r.producedValue || {})[pm]);
+  const ownUsed = sum(r => (r.usedInputValue || {})[pm]), profit = sum(r => (r.profit || {})[pm]);
   const live = rows.find(r => r.live);
-  const expCost = live ? (live.spent || 0) + ((live.toBuy || {})[pm] || 0) : 0;
+  const expCost = live ? (live.spent || 0) + ((live.toBuy || {})[pm] || 0) + ((live.plannedInputValue || {})[pm] || 0) : 0;
   const expValue = live ? (live.plannedValue || {})[pm] || 0 : 0;
   let html = `<div class="money ov">
     <div class="m-tile"><span>Spent in total</span>${money(spent)}<small>tracked purchases</small></div>
-    <div class="m-tile"><span>Value produced</span>${money(value)}<small>finished jobs · ${pmText()}</small></div>
-    <div class="m-tile big"><span>Profit so far</span>${money(value - spent, true)}<small>${spent ? pct((value - spent) / spent * 100) + " on costs" : "no purchases entered yet (step 2) – costs count as 0"}</small></div>
+    <div class="m-tile"><span>Value produced</span>${money(value)}<small>finished jobs · ${pmText()}${ownUsed ? ` · ${isk(ownUsed)} of it from own products` : ""}</small></div>
+    <div class="m-tile big"><span>Profit so far</span>${money(profit, true)}<small>${spent ? pct(profit / spent * 100) + " on money spent" : "no purchases entered yet (step 2) – costs count as 0"}</small></div>
     ${live ? `<div class="m-tile"><span>Expected this month (${monthName(live.month, true)})</span>${money(expValue - expCost, true)}<small>${isk(expValue)} value − ${isk(expCost)} costs</small></div>` : ""}
   </div>`;
   // money per month as bars
   const vals = rows.map(r => {
     const v = (r.live ? (r.plannedValue || {})[pm] : (r.producedValue || {})[pm]) || 0;
-    const cost = r.live ? (r.spent || 0) + ((r.toBuy || {})[pm] || 0) : r.spent || 0;
+    const cost = r.live ? (r.spent || 0) + ((r.toBuy || {})[pm] || 0) + ((r.plannedInputValue || {})[pm] || 0)
+                        : (r.spent || 0) + ((r.usedInputValue || {})[pm] || 0);
     return { r, v, cost, profit: v - cost };
   });
   const max = Math.max(1, ...vals.map(x => Math.max(x.v, x.cost)));
@@ -947,7 +988,7 @@ function overviewHtml() {
     + vals.map(x => `<div class="bar-month" data-goto-month="${c.months.findIndex(m => m.id === x.r.month)}">
         <div class="bar-pair"><div class="b cost" style="height:${x.cost / max * 100}%" title="Costs ${full(x.cost)} ISK"></div><div class="b value ${x.r.live ? "planned" : ""}" style="height:${x.v / max * 100}%" title="Value ${full(x.v)} ISK"></div></div>
         <b class="${sign(x.profit)}">${x.cost || x.v ? isk(x.profit) : "–"}</b><span>${monthName(x.r.month, true)}${x.r.live ? " (open)" : ""}</span></div>`).join("")
-    + `</div><div class="legend"><span><i class="cost"></i>Costs</span><span><i class="value"></i>Value of products</span><span><i class="value planned"></i>planned (open month)</span></div></div>`;
+    + `</div><div class="legend"><span><i class="cost"></i>Costs (bought + own products used)</span><span><i class="value"></i>Value of products</span><span><i class="value planned"></i>planned (open month)</span></div></div>`;
   // pipeline: which run is in which stage in which month
   const runs = c.months.map((m, i) => ({ m, i, len: runMonths(m.orders, kindOf) })).filter(x => x.len);
   if (runs.length) {
@@ -972,9 +1013,10 @@ function overviewHtml() {
     { key: "jobsDone", title: "Jobs done", html: r => r.jobsDone == null ? "–" : num(r.jobsDone) + (r.jobsTotal != null ? ` / ${num(r.jobsTotal)}` : "") },
     { key: "jobsCarried", title: "Carried over", fmt: num },
     { key: "spent", title: "Spent", fmt: v => v == null ? "–" : isk(v) },
+    { key: "own", title: "Own products used", value: r => (r.usedInputValue || {})[pm], fmt: v => v == null ? "–" : isk(v), tip: () => "simple/complex products from earlier months that were used up" },
     { key: "pv", title: `Value produced`, cls: pm, sep: true, value: r => (r.producedValue || {})[pm], fmt: v => v == null ? "–" : isk(v) },
     { key: "pr", title: "Profit", cls: pm, signed: true, value: r => (r.profit || {})[pm], fmt: v => v == null ? "–" : isk(v) }]) +
-    `<p class="muted small">Closed months keep the prices of the day they were closed. Open months show the current state.</p></section>`;
+    `<p class="muted small">Profit = value produced − money spent − own products used. Simple products count when they are made, and are subtracted again when a complex reaction uses them – so nothing is counted twice. Closed months keep the prices of the day they were closed.</p></section>`;
   return html;
 }
 
@@ -1126,6 +1168,7 @@ async function calcMonth(path = "/api/campaign/plan", extra = {}, read = true) {
   try {
     const data = await api(path, { settings: formSettings(), campaign: state.campaign, index: state.monthIndex, ...extra });
     state.campaign = data.campaign; state.monthIndex = data.index; state.monthPlan = data.plan; state.overview = data.overview;
+    state.runPreview = data.runPreview;
     status(`${monthName(data.plan.month)} · saved ${new Date().toLocaleTimeString()}` + (data.notes || []).map(n => " · " + n).join("")
            + (data.prices ? " · " + priceAge(data.prices) : ""));
   } catch (e) { status(e.message, "error"); }
@@ -1189,6 +1232,12 @@ function bindPlanner(items) {
   for (const b of document.querySelectorAll(".stepper [data-step], [data-goto]")) b.onclick = () => {
     readMonth(); state.steps[curMonth().id] = b.dataset.step || b.dataset.goto; render(); window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  for (const b of document.querySelectorAll("[data-create]")) b.onclick = () => $("createPlan").click();
+  if ($("addProduced")) $("addProduced").onclick = () => {
+    const lines = Object.entries(prevProduced()).map(([n, q]) => `${n}\t${q}`).join("\n");
+    $("stock").value = ($("stock").value.trim() ? $("stock").value.trim() + "\n" : "") + lines;
+    calcMonth();
+  };
   if ($("addBtn")) {
     const valid = new Map(items.map(([n, key, k]) => [n.toLowerCase(), [n, key, k]]));
     const add = () => {
@@ -1239,7 +1288,7 @@ function bindPlanner(items) {
     if ($("allBought")) $("allBought").onclick = () => {
       readMonth();
       const month = curMonth();
-      for (const x of p.shopping) if (x.remaining > 0) month.bought[x.name] = { qty: x.toBuy, price: x.price[PM()] || 0 };
+      for (const x of p.shopping) if (x.remaining > 0) month.bought[x.name] = { qty: x.toBuy, price: Math.round((x.price[PM()] || 0) * 100) / 100 };
       calcMonth(undefined, {}, false);
     };
     $("csvBuy").onclick = () => download(`shopping-list-${p.month}`, [["Item", "Needed", "Stock", "To buy", "Bought", "Paid per unit", "Remaining", ...MODES.map(m => `Cost ${m}`)],

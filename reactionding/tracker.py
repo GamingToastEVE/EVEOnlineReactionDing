@@ -257,7 +257,23 @@ def plan_month(recipes, components, settings, campaign, index, prices=None):
                 continue
             raw_need[mat] = raw_need.get(mat, 0) + to_install * job_quantity(qty, runs, bonus)
 
+    # own intermediate products used up this month (simple products in stage 2, complex in stage 3)
+    def own_inputs(ln, jobs):
+        if ln["stage"] != 2 or jobs <= 0:
+            return {}
+        return {mat: jobs * q for mat, q in simple_inputs(ln["name"]).items()}
+
+    def comp_inputs(s3, units):
+        c = components[s3["name"]]
+        n = math.ceil(units / c["outputPerRun"]) if units > 0 else 0
+        return {mat: job_quantity(qty, n, comp_bonus) for mat, qty in c["materials"].items()} if n else {}
+
     names = set(raw_need) | {ln["name"] for ln in lines.values()} | {s["name"] for s in stage3}
+    for ln in lines.values():
+        if ln["stage"] == 2:
+            names |= set(simple_inputs(ln["name"]))
+    for s3 in stage3:
+        names |= set(components[s3["name"]]["materials"])
     prices = prices or prices_by_name(sorted(names))
     bought = month.get("bought") or {}
 
@@ -285,20 +301,38 @@ def plan_month(recipes, components, settings, campaign, index, prices=None):
         p = prices.get(name) or {}
         return {m: qty * p[m] if p.get(m) is not None else None for m in MODES}
 
+    def value_of(items):
+        out = {m: 0.0 for m in MODES}
+        for name, qty in items.items():
+            v = value(name, qty)
+            for m in MODES:
+                out[m] += v[m] or 0.0
+        return out
+
     produced = {m: 0.0 for m in MODES}
     planned_value = {m: 0.0 for m in MODES}
+    planned_inputs = {m: 0.0 for m in MODES}
+    used_inputs = {m: 0.0 for m in MODES}
     for ln in lines.values():
         ln["value"] = value(ln["name"], ln["scheduled"] * ln["outputPerJob"])
         ln["doneValue"] = value(ln["name"], ln["done"] * ln["outputPerJob"])
+        ln["inputValue"] = value_of(own_inputs(ln, ln["scheduled"]))
+        done_inputs = value_of(own_inputs(ln, ln["done"]))
         for m in MODES:
             planned_value[m] += ln["value"][m] or 0.0
             produced[m] += ln["doneValue"][m] or 0.0
+            planned_inputs[m] += ln["inputValue"][m]
+            used_inputs[m] += done_inputs[m]
     for s3 in stage3:
         s3["value"] = value(s3["name"], s3["buildable"])
         s3["doneValue"] = value(s3["name"], s3["done"])
+        s3["inputValue"] = value_of(comp_inputs(s3, s3["buildable"]))
+        done_inputs = value_of(comp_inputs(s3, s3["done"]))
         for m in MODES:
             planned_value[m] += s3["value"][m] or 0.0
             produced[m] += s3["doneValue"][m] or 0.0
+            planned_inputs[m] += s3["inputValue"][m]
+            used_inputs[m] += done_inputs[m]
 
     stages = {stage: sorted((ln for ln in lines.values() if ln["stage"] == stage), key=lambda x: x["name"])
               for stage in (1, 2)}
@@ -309,6 +343,8 @@ def plan_month(recipes, components, settings, campaign, index, prices=None):
         "blocked": sum(ln["blocked"] for ln in lines.values()),
         "shopping": shopping, "shoppingTotal": totals, "spent": spent,
         "plannedValue": planned_value, "producedValue": produced,
+        # value of own intermediate products (from stock) used by the planned / finished jobs
+        "plannedInputValue": planned_inputs, "usedInputValue": used_inputs,
         "postponed": sum(ln["postponed"] for ln in lines.values()),
         "stockItems": len(stock),
         "missingPrices": {n: p["note"] for n, p in prices.items() if (p or {}).get("note")},
@@ -371,8 +407,16 @@ def close_month(campaign, index, plan, repeat_orders=False):
     for s3 in plan["stage3"]:
         if s3["units"] - s3["done"] > 0:
             carry.append({"stage": 3, "name": s3["name"], "count": s3["units"] - s3["done"], "started": 0})
+    produced = {}
+    for ln in plan["stage1"] + plan["stage2"]:
+        if ln["done"]:
+            produced[ln["name"]] = produced.get(ln["name"], 0) + ln["done"] * ln["outputPerJob"]
+    for s3 in plan["stage3"]:
+        if s3["done"]:
+            produced[s3["name"]] = produced.get(s3["name"], 0) + s3["done"]
     month["closed"] = True
-    month["summary"] = {"spent": plan["spent"], "producedValue": plan["producedValue"],
+    month["summary"] = {"produced": produced,"spent": plan["spent"], "producedValue": plan["producedValue"],
+                        "usedInputValue": plan["usedInputValue"],
                         "jobsDone": sum(ln["done"] for ln in plan["stage1"] + plan["stage2"]),
                         "unitsBuilt": sum(s3["done"] for s3 in plan["stage3"]),
                         "jobsCarried": sum(c["count"] for c in carry)}
@@ -402,6 +446,7 @@ def overview(campaign, live=None):
                "jobsDone": s.get("jobsDone"), "jobsCarried": s.get("jobsCarried"),
                "unitsBuilt": s.get("unitsBuilt"), "jobsTotal": None,
                "spent": s.get("spent"), "producedValue": s.get("producedValue"), "plannedValue": None,
+               "usedInputValue": s.get("usedInputValue"), "plannedInputValue": None,
                "toBuy": None, "live": False}
         plan = (live or {}).get(i)
         if plan and not row["closed"]:
@@ -410,7 +455,11 @@ def overview(campaign, live=None):
                        jobsTotal=sum(ln["count"] for ln in jobs),
                        unitsBuilt=sum(s3["done"] for s3 in plan["stage3"]),
                        spent=plan["spent"], producedValue=plan["producedValue"],
-                       plannedValue=plan["plannedValue"], toBuy=plan["shoppingTotal"])
-        row["profit"] = {k: v - (row["spent"] or 0) for k, v in (row["producedValue"] or {}).items()}
+                       plannedValue=plan["plannedValue"], toBuy=plan["shoppingTotal"],
+                       usedInputValue=plan["usedInputValue"], plannedInputValue=plan["plannedInputValue"])
+        used = row["usedInputValue"] or {}
+        # profit = what was made - money spent - own intermediate products used up
+        row["profit"] = {k: v - (row["spent"] or 0) - (used.get(k) or 0)
+                         for k, v in (row["producedValue"] or {}).items()}
         rows.append(row)
     return rows

@@ -57,6 +57,9 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual((x["ordered"], x["auto"], x["count"]), (1, 1, 2))
         self.assertEqual((x["scheduled"], x["blocked"]), (2, 0))  # 2 x 52964 Simple A from stock
         self.assertEqual({s["name"] for s in m1["shopping"]}, {"Fuel"})
+        # the Simple A taken from stock counts as used-up own product (no double counting)
+        self.assertEqual(m1["plannedInputValue"]["buy"], 2 * 52964 * 30)
+        self.assertEqual(m1["usedInputValue"]["buy"], 0)
 
         # month 3: components of the first run
         c["months"][1]["track"] = {"2|Complex X": {"started": 2, "done": 2}}
@@ -168,6 +171,7 @@ class PipelineTest(unittest.TestCase):
         c["months"][0]["track"] = {"1|Simple A": {"started": 1, "done": 1}}
         tracker.close_month(c, 0, plan(c, 0))
         row = tracker.overview(c)[0]
+        self.assertEqual(row["usedInputValue"]["buy"], 0)  # stage 1 only uses bought materials
         self.assertEqual(row["spent"], 550000)
         self.assertEqual(row["producedValue"]["buy"], 108800 * 30)
         self.assertEqual(row["profit"]["buy"], 108800 * 30 - 550000)

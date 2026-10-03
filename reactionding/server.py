@@ -179,7 +179,14 @@ def make_handler(store):
                         index += 1
                         plan = tracker.plan_month(rec, comps, values, campaign, index)
                     save_campaign(campaign)
+                    run = None
+                    orders = campaign["months"][index].get("orders") or {}
+                    if any((orders.get("jobs") or {}).values()) or any((orders.get("components") or {}).values()):
+                        run = production.preview(rec, values, {"runsPerJob": campaign.get("runsPerJob") or 544,
+                                                               "jobs": orders.get("jobs") or {},
+                                                               "components": orders.get("components") or {}}, comps)
                     return self._send(200, {"notes": notes, "campaign": campaign, "index": index, "plan": plan,
+                                            "runPreview": run,
                                             "prices": market.status(),
                                             "overview": tracker.overview(campaign, {index: plan}),
                                             "stageNames": tracker.STAGE_NAMES})

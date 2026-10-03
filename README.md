@@ -81,6 +81,12 @@ als Spalten nebeneinander**. Die Einstellungen sind eingeklappt, oben steht eine
      ③ *Reaction checklist* (jede Reaction mit Häkchen *started* / *done*, Fortschrittsbalken pro Stufe,
      „All started“ / „All done“), ④ *Close month*. Oben stehen Kosten → Wert = erwarteter Profit.
    - **Preise:** Ein Schalter Buy / Split / Sell gilt für den ganzen Planer.
+   - **Gewinn ohne Doppelzählung:** Kosten eines Monats = Einkäufe + Wert der *eigenen
+     Zwischenprodukte*, die aus dem Lager verbraucht werden (Simple-Produkte in Complex-Jobs,
+     Complex-Produkte in Komponenten). Die Monatsgewinne eines Durchlaufs ergeben zusammen genau
+     seinen Gesamtgewinn. Unter den Kennzahlen steht zusätzlich der Gewinn des ganzen Durchlaufs.
+   - **„Add the finished products of …“** übernimmt die im Vormonat als *done* markierten Produkte
+     ins Lager, falls du es nicht neu aus EVE einfügen willst.
    - **Lager:** wird zu jedem Monatsbeginn aus EVE eingefügt (Inventar, Strg+A, Strg+C).
    - **Stufe 2 und 3 laufen nur mit dem, was wirklich im Lager ist.** Sind die Simple Reactions
      nicht fertig oder nicht im eingefügten Lager, ist der Complex-Job *blockiert* und wandert in
