@@ -22,13 +22,14 @@
   .topbar { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line);
             display: flex; align-items: center; gap: 18px; padding: 0 20px; height: 54px; }
   .brand { font-weight: 700; font-size: 16px; color: var(--accent); white-space: nowrap; }
-  .nav { display: flex; gap: 4px; height: 100%; }
+  .nav { display: flex; gap: 4px; height: 100%; flex: none; }
+  .nav button { white-space: nowrap; }
   .nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 14px; cursor: pointer;
                 color: var(--muted); font-weight: 600; height: 100%; }
   .nav button:hover { color: var(--text); }
   .nav button.active { color: var(--text); border-bottom-color: var(--accent); }
   .status { margin-left: auto; color: var(--muted); font-size: 13px; text-align: right; overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+            text-overflow: ellipsis; white-space: nowrap; max-width: 55%; min-width: 0; flex: 1 1 auto; }
   .status.error { color: var(--neg); }
   .status.busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px;
             border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%;
@@ -153,6 +154,16 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  .suggest-wrap { position: relative; min-width: 0; }
+  .suggest-wrap input { width: 100%; }
+  .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; max-height: 300px; overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5); padding: 4px; }
+  .suggest .opt { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  .suggest .opt span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggest .opt b { color: var(--accent); }
+  .suggest .opt small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .suggest .opt.on, .suggest .opt:hover { background: var(--accent-dim); }
+  .suggest .none { padding: 6px 10px; color: var(--muted); font-size: 12px; }
   @media (max-width: 700px) {
     .topbar { flex-wrap: wrap; height: auto; padding: 8px 12px 0; gap: 4px 12px; }
     .nav { height: 40px; order: 3; width: 100%; overflow-x: auto; }
@@ -690,6 +701,55 @@ function monthName(id, short) {
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: short ? "short" : "long", year: "numeric" });
 }
 function nextId(id) { const [y, m] = id.split("-").map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`; }
+// search-as-you-type list for reactions/components (the same in every browser, unlike <datalist>)
+function attachSuggest(input, items, onPick) {
+  const box = document.createElement("div");
+  box.className = "suggest"; box.hidden = true;
+  input.parentNode.appendChild(box);
+  let hits = [], active = 0;
+  const show = () => {
+    const q = input.value.trim().toLowerCase();
+    const scored = items.map(it => [it, it[0].toLowerCase()]).filter(([, n]) => !q || n.includes(q))
+      .sort((a, b) => (a[1].startsWith(q) ? 0 : 1) - (b[1].startsWith(q) ? 0 : 1) || a[1].localeCompare(b[1]));
+    hits = scored.slice(0, 40).map(([it]) => it);
+    active = 0;
+    if (!hits.length) { box.innerHTML = '<div class="none">No reaction or component with that name</div>'; box.hidden = false; return; }
+    box.innerHTML = hits.map(([n, , k], i) => {
+      const at = q ? n.toLowerCase().indexOf(q) : -1;
+      const name = at < 0 ? esc(n) : esc(n.slice(0, at)) + "<b>" + esc(n.slice(at, at + q.length)) + "</b>" + esc(n.slice(at + q.length));
+      return `<div class="opt ${i === 0 ? "on" : ""}" data-i="${i}"><span>${name}</span><span class="kind">${k}</span><small>${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""}</small></div>`;
+    }).join("") + (scored.length > hits.length ? `<div class="none">${scored.length - hits.length} more – keep typing</div>` : "");
+    box.hidden = false;
+  };
+  const mark = () => box.querySelectorAll(".opt").forEach((el, i) => {
+    el.classList.toggle("on", i === active);
+    if (i === active) el.scrollIntoView({ block: "nearest" });
+  });
+  const pick = i => {
+    input.value = hits[i][0]; box.hidden = true;
+    input.dispatchEvent(new Event("input"));
+    box.hidden = true;
+    onPick();
+  };
+  input.addEventListener("input", e => { if (e.isTrusted) show(); });
+  input.addEventListener("focus", show);
+  input.addEventListener("blur", () => setTimeout(() => { box.hidden = true; }, 150));
+  input.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (box.hidden) return show();
+      active = (active + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % Math.max(hits.length, 1); mark();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!box.hidden && hits.length) pick(active);
+      else if (input.value.trim()) onPick();
+    } else if (e.key === "Escape" && !box.hidden) { e.preventDefault(); e.stopPropagation(); box.hidden = true; }
+  });
+  box.addEventListener("mousedown", e => {
+    const opt = e.target.closest(".opt");
+    if (opt) { e.preventDefault(); pick(Number(opt.dataset.i)); }
+  });
+}
 function kindMap() { return Object.fromEntries(planItems().map(([n, , k]) => [n, k])); }
 function runMonths(orders, kindOf) {
   let n = 0;
@@ -832,11 +892,11 @@ function stepPlanHtml(month, p) {
   return `<div class="planner-top">
     <div class="card"><h3>What do you want to make? <span class="muted small">(new run from ${monthName(month.id, true)})</span></h3>
       ${ro ? "" : `<div class="add-row">
-        <input id="addName" list="planItems" placeholder="Reaction or component, e.g. Fullerides or Antimatter Reactor Unit">
+        <div class="suggest-wrap"><input id="addName" autocomplete="off" placeholder="Reaction or component, e.g. Fullerides or Antimatter Reactor Unit"></div>
         <input id="addQty" type="number" min="1" step="1" placeholder="Jobs / units">
         <button class="btn" id="addBtn">Add</button>
       </div>
-      <datalist id="planItems">${items.map(([n, , k]) => `<option value="${esc(n)}">${k} · ${RUN_MONTHS[k]} month run</option>`).join("")}</datalist>`}
+`}
       <div class="orders tablewrap"><table><thead><tr><th class="left">Order</th><th>Quantity</th><th class="left">Run length</th><th></th></tr></thead><tbody>${orderRows}</tbody></table></div>
     </div>
     <div class="card"><h3>Your stock at the start of ${monthName(month.id, true)}</h3>
@@ -1032,8 +1092,7 @@ function createDialogHtml() {
       <label class="field">Reaction slots (0 = no limit)<input id="cpSlots" type="number" min="0" value="${state.campaign.slots ?? 30}"></label>
     </div>
     <h3>What do you want to make?</h3>
-    <div class="add-row"><input id="cpName" list="planItems2" placeholder="Reaction or component"><input id="cpQty" type="number" min="1" placeholder="Jobs / units"><button type="button" class="btn" id="cpAdd">Add</button></div>
-    <datalist id="planItems2">${planItems().map(([n, , k]) => `<option value="${esc(n)}">${k} · ${RUN_MONTHS[k]} month run</option>`).join("")}</datalist>
+    <div class="add-row"><div class="suggest-wrap"><input id="cpName" autocomplete="off" placeholder="Reaction or component – type to search"></div><input id="cpQty" type="number" min="1" placeholder="Jobs / units"><button type="button" class="btn" id="cpAdd">Add</button></div>
     <ul class="cp-list" id="cpList"><li class="muted">Nothing added yet.</li></ul>
     <label class="field">Your stock (optional, paste from EVE)<textarea id="cpStock" class="stock" style="height:90px"></textarea></label>
     <div class="cp-preview" id="cpPreview"><span class="muted small">Add something to see costs and profit live.</span></div>
@@ -1097,7 +1156,7 @@ function bindCreateDialog() {
   $("cpAdd").onclick = add;
   draw();
   $("cpQty").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); add(); } };
-  $("cpName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("cpQty").focus(); } };
+  attachSuggest($("cpName"), items, () => $("cpQty").focus());
   $("cpCreate").onclick = async () => {
     if (!orderCount(orders)) return status("Add at least one reaction or component.", "error");
     const id = $("cpMonth").value || new Date().toISOString().slice(0, 7);
@@ -1252,7 +1311,7 @@ function bindPlanner(items) {
     };
     $("addBtn").onclick = add;
     $("addQty").onkeydown = e => { if (e.key === "Enter") add(); };
-    $("addName").onkeydown = e => { if (e.key === "Enter") $("addQty").focus(); };
+    attachSuggest($("addName"), items, () => $("addQty").focus());
     $("addName").oninput = () => {
       const hit = valid.get($("addName").value.trim().toLowerCase());
       $("addQty").placeholder = hit ? (hit[1] === "jobs" ? `Jobs (${RUN_MONTHS[hit[2]]} month run)` : `Units (${RUN_MONTHS[hit[2]]} month run)`) : "Jobs / units";
