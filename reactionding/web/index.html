@@ -154,6 +154,17 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  #tourBtn { flex: none; }
+  .tour { position: fixed; inset: 0; z-index: 90; }
+  .tour-hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(5, 8, 12, .72), 0 0 0 2px var(--accent);
+    transition: all .25s ease; pointer-events: none; }
+  .tour-card { position: fixed; width: min(380px, calc(100vw - 20px)); background: var(--panel); border: 1px solid var(--accent);
+    border-radius: 12px; padding: 14px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+  .tour-card h3 { margin: 2px 0 6px; font-size: 16px; }
+  .tour-card p { margin: 0 0 12px; white-space: pre-line; line-height: 1.5; color: var(--text); font-size: 13.5px; }
+  .tour-count { font-size: 11px; color: var(--muted); }
+  .tour-btns { display: flex; gap: 8px; align-items: center; }
+  .tour-btns .grow { flex: 1; }
   .tip { position: fixed; z-index: 100; max-width: 340px; padding: 7px 10px; border-radius: 7px; pointer-events: none;
     background: #2a3440; color: var(--text); border: 1px solid #3a4652; font-size: 12.5px; line-height: 1.45; font-weight: 400;
     white-space: pre-line; text-align: left; text-transform: none; letter-spacing: 0; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
@@ -280,6 +291,7 @@
   <div class="brand">EVE Reaction Ding</div>
   <nav class="nav" id="nav"></nav>
   <div class="status" id="status">Loading…</div>
+  <button class="btn small ghost" id="tourBtn" data-tip="Short tour through the program (1 minute).">? Tutorial</button>
 </div>
 <main>
   <details class="card settings" id="settingsBox">
@@ -1453,11 +1465,97 @@ function totalRow(cols, prefix, totals, extra = {}) {
   }).join("") + "</tr>";
 }
 
+// ---------- tutorial: short guided tour ----------
+const TOUR = [
+  { title: "Welcome! 👋", text: "EVE Reaction Ding calculates your moon reactions with live Jita prices and plans them month by month.\n\nThis tour takes about a minute. Use the arrow keys or the buttons; Esc closes it." },
+  { sel: "#nav", title: "Three areas", text: "Reactions: profit of all 177 reactions.\nCost chain: what one unit costs you when you react everything yourself.\nMonthly planner: your production plan with shopping list and checklist." },
+  { sel: "#settingsBox", title: "Your settings", text: "Click here to set your refinery: system, rigs, skills, taxes. Everything is calculated with these values. 'Save as default' remembers them." },
+  { view: "reactions", sel: "#calc", title: "Reactions", text: "Calculate loads every reaction with your settings. Cost and profit are shown for Jita Buy, Split and Sell. Click a row for the full breakdown; click a column header to sort." },
+  { view: "chain", sel: "#chainTabs", title: "Cost chain", text: "Production cost per unit along the chain moon goo → simple → complex → T2 components, compared with the Jita price." },
+  { view: "planner", sel: "#createPlan", title: "Start a plan", text: "Create plan: pick what you want to make (reactions or components). You see the costs and the profit of the whole run live before you commit." },
+  { view: "planner", sel: ".month-head", title: "The month at a glance", text: "Costs → value of the products = expected profit, plus how many jobs are done. Below: the profit of the whole run that started this month." },
+  { view: "planner", sel: ".stepper", title: "Four steps per month", text: "1 Orders & stock – paste your stock from EVE.\n2 Buy materials – shopping list, copy it into EVE's Multibuy.\n3 Reaction checklist – tick started / done.\n4 Close month – unfinished jobs move on, the next month starts." },
+  { view: "planner", sel: "#priceMode", title: "Price method", text: "One switch for the whole planner: Jita Buy, Split or Sell." },
+  { view: "planner", sel: "#monthTabs", title: "Months and overview", text: "Switch between months here. 📊 Overview shows money spent, value produced, profit per month and a timeline of your runs." },
+  { sel: "#tourBtn", title: "That's it! 🎉", text: "Hover over almost anything for an explanation. You can start this tour again here any time." },
+];
+const tour = { i: -1, el: null };
+async function waitFor(sel, ms = 20000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const el = document.querySelector(sel);
+    if (el && el.getBoundingClientRect().width) return el;
+    await new Promise(r => setTimeout(r, 120));
+  }
+  return null;
+}
+function endTour() {
+  if (tour.el) tour.el.remove();
+  tour.el = null; tour.i = -1;
+  document.removeEventListener("keydown", tourKeys, true);
+  try { localStorage.setItem("tourDone", "1"); } catch {}
+}
+function tourKeys(e) {
+  if (tour.i < 0) return;
+  if (e.key === "Escape") { e.preventDefault(); endTour(); }
+  else if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); tourGo(tour.i + 1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); tourGo(tour.i - 1); }
+}
+async function tourGo(i) {
+  if (i < 0) return;
+  if (i >= TOUR.length) return endTour();
+  tour.i = i;
+  const step = TOUR[i];
+  if (!tour.el) {
+    tour.el = document.createElement("div");
+    tour.el.className = "tour";
+    tour.el.innerHTML = '<div class="tour-hole"></div><div class="tour-card"></div>';
+    document.body.appendChild(tour.el);
+    document.addEventListener("keydown", tourKeys, true);
+  }
+  if (step.view && state.view !== step.view) {
+    if (state.view === "planner") readMonth();
+    state.view = step.view; state.filter = ""; buildNav(); render();
+  }
+  if (step.view === "planner" && state.showOverview && step.sel !== "#monthTabs") { state.showOverview = false; render(); }
+  if (step.sel === "#settingsBox") $("settingsBox").open = false;
+  const el = step.sel ? await waitFor(step.sel) : null;
+  if (tour.i !== i || !tour.el) return;   // user clicked on while we were waiting
+  const hole = tour.el.querySelector(".tour-hole"), card = tour.el.querySelector(".tour-card");
+  card.innerHTML = `<div class="tour-count">${i + 1} / ${TOUR.length}</div><h3>${esc(step.title)}</h3><p>${esc(step.text)}</p>
+    <div class="tour-btns"><button class="btn ghost small" data-t="skip">Skip tour</button><span class="grow"></span>
+      ${i ? '<button class="btn small" data-t="back">← Back</button>' : ""}
+      <button class="btn primary small" data-t="next">${i === TOUR.length - 1 ? "Done" : "Next →"}</button></div>`;
+  card.onclick = e => {
+    const t = e.target.dataset.t;
+    if (t === "skip") endTour(); else if (t === "back") tourGo(i - 1); else if (t === "next") tourGo(i + 1);
+  };
+  if (el) {
+    el.scrollIntoView({ block: "center", behavior: "instant" });
+    const r = el.getBoundingClientRect(), pad = 6;
+    Object.assign(hole.style, { display: "block", left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + 2 * pad + "px", height: r.height + 2 * pad + "px" });
+    const c = card.getBoundingClientRect();
+    let top = r.bottom + 14;
+    if (top + c.height > window.innerHeight - 10) top = Math.max(10, r.top - c.height - 14);
+    const left = Math.max(10, Math.min(window.innerWidth - c.width - 10, r.left));
+    Object.assign(card.style, { left: left + "px", top: top + "px", transform: "none" });
+  } else {
+    hole.style.display = "none";
+    Object.assign(card.style, { left: "50%", top: "40%", transform: "translate(-50%, -50%)" });
+  }
+  card.querySelector("[data-t=next]").focus();
+}
+$("tourBtn").onclick = () => { endTour(); tourGo(0); };
+window.addEventListener("resize", () => { if (tour.i >= 0) tourGo(tour.i); });
+
 (async () => {
   try {
     META = await api("/api/meta");
     buildSettings(); buildStorage(); buildNav(); render();
     status("Ready.");
+    let seen = false;
+    try { seen = !!localStorage.getItem("tourDone"); } catch {}
+    if (!seen) setTimeout(() => tourGo(0), 600);
   } catch (e) { status(e.message, "error"); }
 })();
 </script>

@@ -41,6 +41,9 @@ Windows-Server und hängt sie als Artefakt an.
 
 ## Web-Oberfläche
 
+Beim ersten Start zeigt eine kurze **Tour** (11 Schritte) die wichtigsten Stellen. Sie lässt sich jederzeit
+über **? Tutorial** oben rechts neu starten. Fast alles hat außerdem einen Tooltip (Maus drüber halten).
+
 ```bash
 python -m reactionding            # oder: python -m reactionding serve --open
 ```
