@@ -154,6 +154,12 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  .tip { position: fixed; z-index: 100; max-width: 340px; padding: 7px 10px; border-radius: 7px; pointer-events: none;
+    background: #2a3440; color: var(--text); border: 1px solid #3a4652; font-size: 12.5px; line-height: 1.45; font-weight: 400;
+    white-space: pre-line; text-align: left; text-transform: none; letter-spacing: 0; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+  [data-tip] { cursor: help; } td[data-tip] { cursor: inherit; }
+  button[data-tip], a[data-tip], input[data-tip], select[data-tip], label[data-tip], summary[data-tip], .stepper [data-tip], th[data-tip] { cursor: pointer; }
+  input[type=number][data-tip], input[type=text][data-tip], textarea[data-tip] { cursor: text; }
   .suggest-wrap { position: relative; min-width: 0; }
   .suggest-wrap input { width: 100%; }
   .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; max-height: 300px; overflow-y: auto;
@@ -281,8 +287,8 @@
     <div class="settings-body">
       <form id="settings" class="settings-grid" autocomplete="off"></form>
       <div class="settings-actions">
-        <button type="button" class="btn" id="save">Save as default</button>
-        <button type="button" class="btn ghost" id="reset">Reset</button>
+        <button type="button" class="btn" id="save" data-tip="Remember these settings – they are loaded every time the program starts.">Save as default</button>
+        <button type="button" class="btn ghost" id="reset" data-tip="Back to the default values (not saved until you press Save as default).">Reset</button>
         <span class="muted small">Prices: Jita 4-4 live (ESI) – Buy = highest buy order, Sell = lowest sell order, Split = middle.
           Recipes: CCP SDE. Quantities and job cost of the reactions table: reactions.coalition.space.</span>
       </div>
@@ -291,7 +297,7 @@
         <div class="small" id="storageInfo"></div>
         <details id="dbBox"><summary class="small muted" style="cursor:pointer;margin-top:8px">MariaDB login</summary>
           <form class="db-grid" id="dbForm" autocomplete="off">
-            <label class="field">Use MariaDB<select name="enabled"><option value="true">when found</option><option value="false">never (folder only)</option></select></label>
+            <label class="field" data-tip="When found: the program looks for MariaDB on this PC at start and uses it if the login works. Never: always save into the data folder.">Use MariaDB<select name="enabled"><option value="true">when found</option><option value="false">never (folder only)</option></select></label>
             <label class="field">Host<input name="host"></label>
             <label class="field">Port<input name="port" type="number" min="1" max="65535"></label>
             <label class="field">User<input name="user"></label>
@@ -299,8 +305,8 @@
             <label class="field">Database<input name="database"></label>
           </form>
           <div class="settings-actions">
-            <button type="button" class="btn ghost" id="dbTest">Test connection</button>
-            <button type="button" class="btn" id="dbSave">Save &amp; connect</button>
+            <button type="button" class="btn ghost" id="dbTest" data-tip="Only tries the login – nothing is changed.">Test connection</button>
+            <button type="button" class="btn" id="dbSave" data-tip="Saves the login and switches to MariaDB. Data from the folder is copied into the new database.">Save &amp; connect</button>
             <span class="muted small">The login is stored in database.json in the data folder (password as plain text).
               Empty password field = keep the saved password. The database and tables are created automatically.</span>
           </div>
@@ -322,6 +328,80 @@ const LABELS = {
 const OPTION_TEXT = { rigs: { 0: "No rig", 1: "Tech 1 rig", 2: "Tech 2 rig" },
                       facility: { medium: "Medium (Athanor)", large: "Large (Tatara)" },
                       skill: { 1: "Level 1", 2: "Level 2", 3: "Level 3", 4: "Level 4", 5: "Level 5" } };
+// ---------- tooltips ----------
+// Every element with data-tip (or a title, which is converted) gets a styled tooltip.
+const MODE_TIP = {
+  buy: "Jita Buy = highest buy order in Jita 4-4.\nWhat you pay with your own buy orders, or get when you sell instantly.",
+  split: "Jita Split = middle between highest buy and lowest sell order – the usual 'fair' price.",
+  sell: "Jita Sell = lowest sell order in Jita 4-4.\nWhat you pay when you buy instantly, or get with your own sell orders.",
+};
+const GROUP_TIP = {
+  "Cost": "Cost of one job: input materials + broker fee on buying + job install cost (system cost index, facility tax, SCC).",
+  "Profit": "Output value − sales tax/broker fee − cost. Green = profitable at that price.",
+  "Jita price": "Current Jita 4-4 market price per unit (ESI, cached 15 min).",
+  "Production cost": "Material cost per unit if you react everything yourself (moon goo → simple → complex → component), using the same price method. No job cost or fees.",
+  "Profit per unit": "Jita price − production cost.",
+  "Output value": "Value of the output of the jobs this month at Jita prices.",
+};
+const SETTING_TIP = {
+  system: "Solar system of your refinery. Spelling is corrected via ESI; its reaction cost index is used for job costs.",
+  brokers: "Broker fee for market orders (depends on Broker Relations skill and standings).",
+  sales: "Sales tax when selling (depends on Accounting skill).",
+  skill: "Your Reactions skill level – each level makes reactions 4 % faster.",
+  facility: "Refinery size: Tatara (large) has a bigger time bonus than Athanor (medium).",
+  rigs: "Reaction rig: T1 = 2 % less material, T2 = 2.4 % less (×1.1 in nullsec/wormhole).",
+  space: "Security of the system – changes the rig bonus.",
+  tax: "Facility tax the structure owner charges on the job cost.",
+  scc: "SCC surcharge added by CCP on every industry job (currently 4 %).",
+  duration: "How long the jobs should run – decides the number of runs per job.",
+  cycles: "Number of runs used by the calculator.",
+  costIndex: "Reaction cost index for wormhole space (in k-space it comes from ESI automatically).",
+  prismaticite: "Luck factor for the Prismaticite reactions (random output).",
+  componentMe: "Material efficiency of your component blueprints (0–10 %). Used by the cost chain and the planner.",
+};
+const tipAttr = text => ` data-tip="${esc(text)}"`;
+(() => {
+  const box = document.createElement("div");
+  box.className = "tip"; box.hidden = true;
+  if (document.body) document.body.appendChild(box);
+  else document.addEventListener("DOMContentLoaded", () => document.body.appendChild(box));
+  let timer = null, current = null;
+  const target = el => {
+    const t = el && el.closest && el.closest("[data-tip], [title]");
+    if (t && t.hasAttribute("title")) {   // take over native titles (no double tooltip)
+      if (t.title) t.dataset.tip = t.title;
+      t.removeAttribute("title");
+    }
+    return t && t.dataset.tip ? t : null;
+  };
+  const hide = () => { clearTimeout(timer); current = null; box.hidden = true; };
+  const show = el => {
+    const outer = el.tagName === "B" && el.parentElement.closest("[data-tip]");   // big numbers in tiles
+    box.textContent = outer ? `${outer.dataset.tip}\n\n= ${el.dataset.tip}` : el.dataset.tip; box.hidden = false;
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    let top = r.top - b.height - 8, below = false;
+    if (top < 6) { top = r.bottom + 8; below = true; }
+    const left = Math.max(6, Math.min(window.innerWidth - b.width - 6, r.left + r.width / 2 - b.width / 2));
+    box.style.top = top + "px"; box.style.left = left + "px";
+    box.classList.toggle("below", below);
+  };
+  const enter = e => {
+    const el = target(e.target);
+    if (el === current) return;
+    hide();
+    if (!el) return;
+    current = el;
+    timer = setTimeout(() => current === el && document.contains(el) && show(el), 250);
+  };
+  document.addEventListener("mouseover", enter);
+  document.addEventListener("focusin", enter);
+  document.addEventListener("mouseout", e => { if (current && !current.contains(e.relatedTarget)) hide(); });
+  document.addEventListener("focusout", hide);
+  document.addEventListener("scroll", hide, true);
+  document.addEventListener("mousedown", hide);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hide(); });
+})();
+
 const state = { view: "reactions", rows: [], tab: "all", filter: "", chain: null, chainTab: "complex",
                 planMeta: null, campaign: null, monthIndex: 0, monthPlan: null, overview: null, showOverview: false,
                 open: new Set() };
@@ -371,7 +451,7 @@ function buildSettings() {
     } else {
       input = `<input name="${key}" type="number" inputmode="decimal" min="${spec.rule[0]}" max="${spec.rule[1]}" step="any" value="${esc(value)}">`;
     }
-    return `<label class="field" title="${esc(spec.label)}">${LABELS[key] || key}${input}</label>`;
+    return `<label class="field"${tipAttr(SETTING_TIP[key] || spec.label)}>${LABELS[key] || key}${input}</label>`;
   }).join("");
   form.addEventListener("input", updateSettingsSummary);
   form.addEventListener("change", updateSettingsSummary);
@@ -450,7 +530,8 @@ function sortRows(rows, id, cols) {
 function headHtml(id, cols) {
   const st = sortState[id] || {};
   const sortCls = c => `sortable ${st.key === c.key ? "sorted" + (st.asc ? " asc" : "") : ""}`;
-  const th = (c, extra = "") => `<th data-sort="${c.key}" data-table="${id}" class="${sortCls(c)} ${c.cls || ""} ${c.left ? "left" : ""} ${c.sep ? "sep" : ""}" ${extra}>${c.title}</th>`;
+  const thTip = c => c.htip || MODE_TIP[c.cls] || "";
+  const th = (c, extra = "") => `<th data-sort="${c.key}" data-table="${id}" class="${sortCls(c)} ${c.cls || ""} ${c.left ? "left" : ""} ${c.sep ? "sep" : ""}" ${extra}${thTip(c) ? tipAttr(thTip(c) + "\nClick to sort.") : ""}>${c.title}</th>`;
   if (!cols.some(c => c.group)) return `<tr>${cols.map(c => th(c)).join("")}</tr>`;
   let top = "", i = 0;
   while (i < cols.length) {
@@ -458,7 +539,7 @@ function headHtml(id, cols) {
     if (!c.group) { top += th(c, 'rowspan="2"'); i++; continue; }
     let n = 0;
     while (i + n < cols.length && cols[i + n].group === c.group) n++;
-    top += `<th class="grouphead sep" colspan="${n}">${c.group}</th>`;
+    top += `<th class="grouphead sep" colspan="${n}"${GROUP_TIP[c.group] ? tipAttr(GROUP_TIP[c.group]) : ""}>${c.group}</th>`;
     i += n;
   }
   return `<tr>${top}</tr><tr>${cols.filter(c => c.group).map(c => th(c)).join("")}</tr>`;
@@ -518,13 +599,13 @@ function bindSearch(id) {
 function renderReactions() {
   const groupTabs = [["all", "All"], ...Object.entries(META.calculators).map(([k, t]) => [k, t.replace(" Reactions", "")]), ["ranking", "Ranking"]];
   let html = `<div class="toolbar">
-      <button class="btn primary" id="calc">${state.rows.length ? "Recalculate" : "Calculate"}</button>
+      <button class="btn primary" id="calc"${tipAttr("Loads all 177 reactions from reactions.coalition.space with your settings and current Jita prices (about a minute).")}>${state.rows.length ? "Recalculate" : "Calculate"}</button>
       <div class="seg" id="groupTabs">${groupTabs.map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? "active" : ""}">${esc(t)}</button>`).join("")}</div>
       <input class="search" id="search" placeholder="Search reaction…">
       <span class="grow"></span>
-      <select id="source" title="Where quantities and job costs come from"><option value="auto">Source: auto</option>
+      <select id="source" title="Where quantities and job costs come from.\nauto: the API, and the calculator page for the groups where the API has known errors."><option value="auto">Source: auto</option>
         <option value="api">Source: API only</option><option value="web">Source: calculator page</option></select>
-      <button class="btn" id="csv">Export CSV</button>
+      <button class="btn" id="csv"${tipAttr("Download the table as CSV (opens in Excel / Google Sheets).")}>Export CSV</button>
     </div>`;
   const rows = state.rows.filter(r => matches(r.name));
   if (!state.rows.length) {
@@ -532,12 +613,12 @@ function renderReactions() {
       <span class="small">Cost = input materials + market fees + job cost · Profit = output value − market fees − cost</span></div>`;
   } else {
     const cols = [
-      { key: "name", title: "Reaction", left: true, html: r => esc(r.name)
+      { key: "name", title: "Reaction", left: true, htip: "Click a row for the full breakdown (inputs, fees, job cost).", html: r => esc(r.name)
           + (state.tab === "ranking" ? `<span class="name-sub">${esc(r.groupTitle)}</span>` : "")
           + warnIcon([...(r.notes || []), ...Object.entries(r.missingPrices || {}).map(([k, v]) => `${k}: ${v}`)]) },
       ...triple("Cost", "cost"),
       ...triple("Profit", "profit", { signed: true }),
-      { key: "profitPercent_split", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true },
+      { key: "profitPercent_split", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, htip: "Profit in % of the cost (Split prices)." },
     ];
     const opts = {
       rowAttrs: r => `class="clickable ${r.error ? "err" : ""} ${state.open.has(r.group + ":" + r.id) ? "open" : ""}" data-key="${r.group}:${r.id}"`,
@@ -653,8 +734,8 @@ function renderChain() {
       ...triple("Jita price", "price", { fmt: unit, pick: (r, m) => r.price[m] }),
       ...triple("Production cost", "cost", { fmt: unit, pick: (r, m) => r.cost[m] }),
       ...triple("Profit per unit", "profit", { fmt: unit, signed: true, pick: (r, m) => r.profit[m] }),
-      { key: "margin", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, value: r => r.margin.split },
-      { key: "ppr", title: "Profit / run<br>(Split)", fmt: isk, signed: true, value: r => r.profitPerRun.split },
+      { key: "margin", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, value: r => r.margin.split, htip: "Profit in % of the production cost (Split)." },
+      { key: "ppr", title: "Profit / run<br>(Split)", fmt: isk, signed: true, value: r => r.profitPerRun.split, htip: "Profit of one run (one reaction cycle or one blueprint run)." },
     ];
     const rows = state.chain[state.chainTab].filter(r => matches(r.name));
     html += tableHtml("chain_" + state.chainTab, rows, cols);
@@ -680,6 +761,12 @@ async function loadChain() {
 // ---------- monthly planner (sheet 8.1 as a 1-3 month pipeline) ----------
 const RUN_MONTHS = { simple: 1, hybrid: 1, complex: 2, component: 3, capital: 3 };
 const STEPS = [["plan", "Orders & stock"], ["buy", "Buy materials"], ["jobs", "Reaction checklist"], ["close", "Close month"]];
+const STEP_TIP = {
+  plan: "Step 1: what you want to make, and your stock pasted from EVE.",
+  buy: "Step 2: shopping list for this month. Enter what you bought – it counts into the costs.",
+  jobs: "Step 3: tick every reaction when you started it and when it is done.",
+  close: "Step 4: close the month – unfinished jobs move to the next month.",
+};
 const STAGE_TEXT = {
   1: ["Simple + hybrid reactions", "Made from moon materials you buy. Their output feeds the complex reactions next month."],
   2: ["Complex reactions", "Need the simple products from last month in stock – without them the jobs are blocked."],
@@ -803,17 +890,17 @@ async function renderPlanner() {
     return calcMonth(undefined, {}, false);
   }
   const c = state.campaign;
-  const monthTabs = `<button data-month="overview" class="${state.showOverview ? "active" : ""}">📊 Overview</button>`
-    + c.months.map((m, i) => `<button data-month="${i}" class="${!state.showOverview && i === state.monthIndex ? "active" : ""}">${monthName(m.id, true)} ${m.closed ? '<span class="muted">✓</span>' : '<span class="dot"></span>'}</button>`).join("");
+  const monthTabs = `<button data-month="overview"${tipAttr("All months: money spent, value produced, profit, chart and run timeline.")} class="${state.showOverview ? "active" : ""}">📊 Overview</button>`
+    + c.months.map((m, i) => `<button data-month="${i}"${tipAttr(m.closed ? `${monthName(m.id)} – closed (✓). Click to look at it.` : `${monthName(m.id)} – open month (●), the one you are working on.`)} class="${!state.showOverview && i === state.monthIndex ? "active" : ""}">${monthName(m.id, true)} ${m.closed ? '<span class="muted">✓</span>' : '<span class="dot"></span>'}</button>`).join("");
   let html = `<div class="toolbar">
       <div class="seg" id="monthTabs">${monthTabs}</div>
-      <button class="btn primary" id="createPlan">＋ Create plan</button>
+      <button class="btn primary" id="createPlan"${tipAttr("Start a new run: pick what you want to make and see costs and profit live before you commit.")}>＋ Create plan</button>
       <span class="grow"></span>
       <span class="muted small">Prices</span>
-      <div class="seg" id="priceMode">${MODES.map(m => `<button data-pm="${m}" class="${m === PM() ? "active" : ""}" style="${m === PM() ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>
-      <details class="opts"><summary class="btn small ghost">⚙ Options</summary><div class="panel">
-        <label class="field">Runs per job<input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
-        <label class="field">Reaction slots (0 = no limit)<input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}"></label>
+      <div class="seg" id="priceMode">${MODES.map(m => `<button data-pm="${m}"${tipAttr(MODE_TIP[m] + "\nUsed for all numbers in the planner.")} class="${m === PM() ? "active" : ""}" style="${m === PM() ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>
+      <details class="opts"><summary class="btn small ghost"${tipAttr("Runs per job, reaction slots, export / import of the plan.")}>⚙ Options</summary><div class="panel">
+        <label class="field"${tipAttr("Runs per reaction job. 544 runs ≈ 30 days with Reactions V, T2 rigs and a Tatara.")}>Runs per job<input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
+        <label class="field"${tipAttr("How many reaction jobs you can run at the same time (all characters). Jobs that do not fit wait for the next month.")}>Reaction slots (0 = no limit)<input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}"></label>
         <div class="row"><button class="btn small" id="exportPlan" title="Save the whole plan (all months) as a file">Export plan</button>
         <button class="btn small" id="importPlan" title="Load a plan file (replaces the current plan)">Import plan</button></div>
         <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -828,7 +915,7 @@ async function renderPlanner() {
   html += monthHeadHtml(month, p);
   html += `<div class="stepper">` + STEPS.map(([k, t], i) => {
     const s = stepState(k, p, month);
-    return `<button data-step="${k}" class="${k === step ? "active" : ""} ${s.done ? "done" : ""}">
+    return `<button data-step="${k}"${tipAttr(STEP_TIP[k])} class="${k === step ? "active" : ""} ${s.done ? "done" : ""}">
       <span class="num">${s.done ? "✓" : i + 1}</span><span><b>${t}</b><small>${esc(s.sub)}</small></span></button>`;
   }).join("") + `</div>`;
   html += `<div class="step-body">` + ({ plan: stepPlanHtml, buy: stepBuyHtml, jobs: stepJobsHtml, close: stepCloseHtml }[step])(month, p) + `</div>`;
@@ -850,17 +937,17 @@ function monthHeadHtml(month, p) {
       <button class="btn primary" data-create>＋ Create plan</button></div></div>`;
   }
   html += `<div class="money">
-    <div class="m-tile"><span>Costs this month</span>${money(g.cost)}<small>${isk(p.spent)} spent + ${isk(p.shoppingTotal[pm])} to buy${g.own ? ` + ${isk(g.own)} own products from stock` : ""}</small></div>
+    <div class="m-tile"${tipAttr("Money spent + materials still to buy + value of your own intermediate products used from stock (so nothing is counted twice).")}><span>Costs this month</span>${money(g.cost)}<small>${isk(p.spent)} spent + ${isk(p.shoppingTotal[pm])} to buy${g.own ? ` + ${isk(g.own)} own products from stock` : ""}</small></div>
     <div class="m-op">→</div>
-    <div class="m-tile"><span>Value of the products</span>${money(p.plannedValue[pm])}<small>${isk(p.producedValue[pm])} already finished</small></div>
+    <div class="m-tile"${tipAttr("Jita value of everything the jobs of this month produce.")}><span>Value of the products</span>${money(p.plannedValue[pm])}<small>${isk(p.producedValue[pm])} already finished</small></div>
     <div class="m-op">=</div>
-    <div class="m-tile big"><span>Expected profit this month</span>${money(g.profit, true)}<small>${g.cost ? pct(g.profit / g.cost * 100) + " on costs · " : ""}${pmText()}</small></div>
-    <div class="m-tile"><span>Jobs done</span><b>${g.done} / ${g.sched}</b>${bar(g.done, g.sched)}<small>${g.started} started${g.waiting ? ` · <span class="note">${g.waiting} waiting</span>` : ""}</small></div>
+    <div class="m-tile big"${tipAttr("Value of the products − costs this month. The months of a run add up to the profit of the whole run.")}><span>Expected profit this month</span>${money(g.profit, true)}<small>${g.cost ? pct(g.profit / g.cost * 100) + " on costs · " : ""}${pmText()}</small></div>
+    <div class="m-tile"${tipAttr("Jobs delivered / jobs to run this month. 'Waiting' = blocked (inputs not in stock) or no free slot – they move to next month.")}><span>Jobs done</span><b>${g.done} / ${g.sched}</b>${bar(g.done, g.sched)}<small>${g.started} started${g.waiting ? ` · <span class="note">${g.waiting} waiting</span>` : ""}</small></div>
   </div>`;
   const r = state.runPreview;
   if (r && orderCount(month.orders)) {
     const end = Array.from({ length: r.months - 1 }).reduce(nextId, month.id);
-    html += `<div class="run-strip"><span class="muted">Whole run started in ${monthName(month.id, true)}${r.months > 1 ? ` (until ${monthName(end, true)})` : ""}:</span>
+    html += `<div class="run-strip"${tipAttr("Everything this run needs over all its months, if you buy all materials at today's prices. Without job install costs and market fees.")}><span class="muted">Whole run started in ${monthName(month.id, true)}${r.months > 1 ? ` (until ${monthName(end, true)})` : ""}:</span>
       materials ${money(r.cost[pm])} → products ${money(r.value[pm])} = profit ${money(r.profit[pm], true)}
       <span class="muted small">${r.margin[pm] != null ? pct(r.margin[pm]) + " · " : ""}if everything is bought at today's prices</span></div>`;
   }
@@ -876,16 +963,16 @@ function stepPlanHtml(month, p) {
       const k = kindOf[o.name] || "?";
       return `<tr><td class="left">${esc(o.name)} <span class="kind">${k}</span></td>
         <td><input type="number" min="1" step="1" data-order="${o.key}" data-name="${esc(o.name)}" value="${o.n}" ${ro ? "disabled" : ""}></td>
-        <td class="left muted small">${o.key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k] || "?"} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
+        <td class="left muted small"${tipAttr(k === "complex" ? "Month 1: the simple reactions for it, month 2: the complex reaction." : k === "component" || k === "capital" ? "Month 1: simple reactions, month 2: complex reactions, month 3: build the component." : "Runs in one month.")}>${o.key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k] || "?"} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
         <td>${ro ? "" : `<button class="x" data-remove="${o.key}" data-name="${esc(o.name)}" title="Remove">×</button>`}</td></tr>`;
     }).join("")
     : `<tr><td class="left muted" colspan="4">No new run this month. Add what you want to make – the simple reactions it needs are added automatically.</td></tr>`;
   let pipe = "";
   if (p) {
     const parts = [];
-    if (p.stage1.length) parts.push(`<li><span class="stage s1">1</span> ${p.stage1.reduce((n, l) => n + l.count, 0)} simple/hybrid jobs <span class="muted">(${monthName(month.id, true)})</span></li>`);
-    if (p.stage2.length) parts.push(`<li><span class="stage s2">2</span> ${p.stage2.reduce((n, l) => n + l.count, 0)} complex jobs from the run of ${monthName(p.waves.stage2 || month.id, true)}</li>`);
-    if (p.stage3.length) parts.push(`<li><span class="stage s3">3</span> ${p.stage3.reduce((n, x) => n + x.units, 0)} components from the run of ${monthName(p.waves.stage3 || month.id, true)}</li>`);
+    if (p.stage1.length) parts.push(`<li><span class="stage s1"${tipAttr("Stage 1: " + STAGE_TEXT[1][0] + ". " + STAGE_TEXT[1][1])}>1</span> ${p.stage1.reduce((n, l) => n + l.count, 0)} simple/hybrid jobs <span class="muted">(${monthName(month.id, true)})</span></li>`);
+    if (p.stage2.length) parts.push(`<li><span class="stage s2"${tipAttr("Stage 2: " + STAGE_TEXT[2][0] + ". " + STAGE_TEXT[2][1])}>2</span> ${p.stage2.reduce((n, l) => n + l.count, 0)} complex jobs from the run of ${monthName(p.waves.stage2 || month.id, true)}</li>`);
+    if (p.stage3.length) parts.push(`<li><span class="stage s3"${tipAttr("Stage 3: " + STAGE_TEXT[3][0] + ". " + STAGE_TEXT[3][1])}>3</span> ${p.stage3.reduce((n, x) => n + x.units, 0)} components from the run of ${monthName(p.waves.stage3 || month.id, true)}</li>`);
     if (parts.length) pipe = `<div class="card"><h3>This month</h3><ul class="pipe">${parts.join("")}</ul>
       <p class="muted small">Simple reactions run first. Complex reactions start the month after, when their inputs are in stock. Components come in the third month.</p></div>`;
   }
@@ -900,7 +987,7 @@ function stepPlanHtml(month, p) {
       <div class="orders tablewrap"><table><thead><tr><th class="left">Order</th><th>Quantity</th><th class="left">Run length</th><th></th></tr></thead><tbody>${orderRows}</tbody></table></div>
     </div>
     <div class="card"><h3>Your stock at the start of ${monthName(month.id, true)}</h3>
-      <textarea class="stock" id="stock" ${ro ? "disabled" : ""} placeholder="In EVE: open the inventory, Ctrl+A, Ctrl+C – then paste here (Ctrl+V).">${esc(month.stock || "")}</textarea>
+      <textarea class="stock" id="stock"${tipAttr("Your stock: complex reactions only run with simple products that are really in here.")} ${ro ? "disabled" : ""} placeholder="In EVE: open the inventory, Ctrl+A, Ctrl+C – then paste here (Ctrl+V).">${esc(month.stock || "")}</textarea>
       <p class="muted small">${p ? `${p.stockItems} items recognised. ` : ""}Paste again every month – including the products of last month's finished jobs.</p>
       ${!ro && prevProduced() ? `<button class="btn small" id="addProduced" title="${esc(Object.entries(prevProduced()).map(([n, q]) => `${num(q)} ${n}`).join("\n"))}">＋ Add the finished products of ${monthName(state.campaign.months[state.monthIndex - 1].id, true)}</button>` : ""}
     </div></div>${pipe}
@@ -920,18 +1007,20 @@ function stepBuyHtml(month, p) {
   if (!p.shopping.length) return `<div class="empty">Nothing to buy this month.</div>`;
   const cols = [
     { key: "name", title: "Item", left: true, html: r => `<span class="${r.remaining ? "" : "struck"}">${esc(r.name)}</span>` + (r.kind !== "raw" ? ` <span class="kind">${r.kind}</span>` : "") + (r.note ? warnIcon([r.note]) : "") },
-    { key: "need", title: "Needed", fmt: num }, { key: "stock", title: "In stock", fmt: num }, { key: "toBuy", title: "To buy", fmt: num },
-    { key: "bought", title: "Bought", html: r => `<input class="track" type="number" min="0" data-buy="${esc(r.name)}" data-field="qty" value="${r.bought || ""}" placeholder="0" ${ro ? "disabled" : ""}>` },
-    { key: "paid", title: "Paid / unit", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid ? +r.paid.toFixed(2) : ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
-    { key: "remaining", title: "Still to buy", html: r => r.remaining ? num(r.remaining) : '<span class="pos">✓</span>' },
+    { key: "need", title: "Needed", fmt: num, htip: "Total quantity the jobs of this month need." },
+    { key: "stock", title: "In stock", fmt: num, htip: "Taken from your pasted stock." },
+    { key: "toBuy", title: "To buy", fmt: num, htip: "Needed − in stock." },
+    { key: "bought", title: "Bought", htip: "Enter how many you bought.", html: r => `<input class="track" type="number" min="0" data-buy="${esc(r.name)}" data-field="qty" value="${r.bought || ""}" placeholder="0" ${ro ? "disabled" : ""}>` },
+    { key: "paid", title: "Paid / unit", htip: "Price you actually paid per unit – counts as money spent.", html: r => `<input class="track wide" type="number" min="0" step="any" data-buy="${esc(r.name)}" data-field="price" value="${r.paid ? +r.paid.toFixed(2) : ""}" placeholder="ISK" ${ro ? "disabled" : ""}>` },
+    { key: "remaining", title: "Still to buy", htip: "To buy − bought. ✓ = done.", html: r => r.remaining ? num(r.remaining) : '<span class="pos">✓</span>' },
     { key: "price", title: `${pmText()} / unit`, cls: pm, sep: true, value: r => r.price[pm], fmt: unit },
     { key: "cost", title: "Cost of the rest", cls: pm, value: r => r.cost[pm] },
   ];
   const foot = () => `<tr class="total"><td class="left">Total</td><td colspan="${cols.length - 2}" class="muted small">${isk(p.spent)} spent so far</td><td title="${full(p.shoppingTotal[pm])}">${isk(p.shoppingTotal[pm])}</td></tr>`;
   return `<div class="toolbar">
-      <button class="btn" id="copyBuy">📋 Copy for EVE Multibuy</button>
-      ${ro ? "" : `<button class="btn ghost" id="allBought" title="Fill in everything as bought at the current ${pmText()} price">Mark all as bought</button>`}
-      <button class="btn ghost" id="csvBuy">Export CSV</button>
+      <button class="btn" id="copyBuy"${tipAttr("Copies the remaining items. In EVE open the market → Multibuy → paste.")}>📋 Copy for EVE Multibuy</button>
+      ${ro ? "" : `<button class="btn ghost" id="allBought" title="Fills in everything as bought at the current ${pmText()} price. You can correct the prices afterwards.">Mark all as bought</button>`}
+      <button class="btn ghost" id="csvBuy"${tipAttr("Download the shopping list as CSV.")}>Export CSV</button>
       <span class="grow"></span><span class="muted small">Enter what you bought – the list updates and the money spent counts into the profit.</span>
     </div>` + tableHtml("m_shop", p.shopping, cols, { foot }) +
     (ro ? "" : `<div class="planner-actions"><button class="btn primary" data-goto="jobs">Next: start the reactions →</button></div>`);
@@ -947,10 +1036,10 @@ function stepJobsHtml(month, p) {
     if (!lines.length) continue;
     const sched = lines.reduce((a, l) => a + l.scheduled, 0), done = lines.reduce((a, l) => a + Math.min(l.done, l.scheduled), 0);
     const started = lines.reduce((a, l) => a + Math.min(l.started, l.scheduled), 0);
-    html += `<section class="group"><h2><span class="stage s${n}">Stage ${n}</span> ${STAGE_TEXT[n][0]}
+    html += `<section class="group"><h2><span class="stage s${n}"${tipAttr(STAGE_TEXT[n][1])}>Stage ${n}</span> ${STAGE_TEXT[n][0]}
         ${p.waves[`stage${n}`] ? `<span class="badge">run of ${monthName(p.waves[`stage${n}`], true)}</span>` : ""}
         <span class="grow"></span><span class="muted small">${started}/${sched} started · ${done}/${sched} done</span>
-        ${ro ? "" : `<button class="btn small ghost" data-all="started" data-stage="${n}">All started</button><button class="btn small ghost" data-all="done" data-stage="${n}">All done</button>`}</h2>
+        ${ro ? "" : `<button class="btn small ghost" data-all="started" data-stage="${n}"${tipAttr("Mark every reaction of this stage as started.")}>All started</button><button class="btn small ghost" data-all="done" data-stage="${n}"${tipAttr("Mark every reaction of this stage as delivered.")}>All done</button>`}</h2>
       ${bar(done, sched, "wide")}<p class="muted small">${STAGE_TEXT[n][1]}</p>
       <div class="checks">` + lines.map(l => {
         const isDone = l.scheduled > 0 && l.done >= l.scheduled, isStarted = l.scheduled > 0 && l.started >= l.scheduled;
@@ -959,9 +1048,9 @@ function stepJobsHtml(month, p) {
           <div class="rx-name"><b>${esc(l.name)}</b>${l.carried ? ` <span class="kind">carried ${l.carried}</span>` : ""}
             <small>${l.scheduled} job${l.scheduled === 1 ? "" : "s"} this month${l.running ? ` (${l.running} already running)` : ""} → ${num(l.scheduled * l.outputPerJob)} units · ${isk(l.value[pm])}
             ${l.blocked ? ` · <span class="note">${l.blocked} blocked (inputs missing)</span>` : ""}${l.postponed ? ` · <span class="note">${l.postponed} no free slot</span>` : ""}</small></div>
-          ${l.scheduled ? `<label class="tick"><input type="checkbox" data-tick="started" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isStarted ? "checked" : ""} ${ro ? "disabled" : ""}> started</label>
+          ${l.scheduled ? `<label class="tick"${tipAttr("Tick when all jobs of this reaction are installed. For a part, type the number in the field next to it.")}><input type="checkbox" data-tick="started" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isStarted ? "checked" : ""} ${ro ? "disabled" : ""}> started</label>
           <input class="track" type="number" min="0" max="${l.count}" data-track="${l.key}" data-field="started" value="${l.started}" ${ro ? "disabled" : ""} title="jobs started">
-          <label class="tick"><input type="checkbox" data-tick="done" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isDone ? "checked" : ""} ${ro ? "disabled" : ""}> done</label>
+          <label class="tick"${tipAttr("Tick when all jobs are delivered. Delivered products can go into next month's stock.")}><input type="checkbox" data-tick="done" data-key="${esc(l.key)}" data-max="${l.scheduled}" ${isDone ? "checked" : ""} ${ro ? "disabled" : ""}> done</label>
           <input class="track" type="number" min="0" max="${l.count}" data-track="${l.key}" data-field="done" value="${l.done}" ${ro ? "disabled" : ""} title="jobs delivered">
           <span class="muted small">of ${l.scheduled}</span>` : `<span class="note small">${wait} waiting – moves to next month</span>`}
         </div>`;
@@ -970,7 +1059,7 @@ function stepJobsHtml(month, p) {
       `</section>`;
   }
   if (p.stage3.length) {
-    html += `<section class="group"><h2><span class="stage s3">Stage 3</span> ${STAGE_TEXT[3][0]}
+    html += `<section class="group"><h2><span class="stage s3"${tipAttr(STAGE_TEXT[3][1])}>Stage 3</span> ${STAGE_TEXT[3][0]}
         ${p.waves.stage3 ? `<span class="badge">run of ${monthName(p.waves.stage3, true)}</span>` : ""}</h2><p class="muted small">${STAGE_TEXT[3][1]}</p><div class="checks">`
       + p.stage3.map(x => `<div class="rx ${x.buildable && x.done >= x.buildable ? "done" : ""}">
           <div class="rx-name"><b>${esc(x.name)}</b><small>${num(x.units)} units · ${num(x.buildable)} buildable now${x.blocked ? ` · <span class="note">${num(x.blocked)} blocked</span>` : ""} · ${isk(x.value[pm])}<br>
@@ -1015,7 +1104,7 @@ function stepCloseHtml(month, p) {
       : `<p>When you close ${monthName(month.id, true)}:</p>
         <ul class="pipe"><li>${open} unfinished, blocked or waiting jobs${units ? ` and ${units} unbuilt components` : ""} move to ${monthName(nextId(month.id), true)}</li>
         <li>Costs and the value of finished jobs are stored for the overview</li></ul>
-        <label class="field inline"><input type="checkbox" id="repeat"> start the same orders again as a new run in ${monthName(nextId(month.id), true)}</label>
+        <label class="field inline"${tipAttr("Tick if you want to make the same things again – the orders are copied into the next month as a new run.")}><input type="checkbox" id="repeat"> start the same orders again as a new run in ${monthName(nextId(month.id), true)}</label>
         <div class="planner-actions"><button class="btn primary" id="closeMonth">Close ${monthName(month.id, true)}</button></div>`}
     </div></div>`;
 }
@@ -1031,9 +1120,9 @@ function overviewHtml() {
   const expCost = live ? (live.spent || 0) + ((live.toBuy || {})[pm] || 0) + ((live.plannedInputValue || {})[pm] || 0) : 0;
   const expValue = live ? (live.plannedValue || {})[pm] || 0 : 0;
   let html = `<div class="money ov">
-    <div class="m-tile"><span>Spent in total</span>${money(spent)}<small>tracked purchases</small></div>
-    <div class="m-tile"><span>Value produced</span>${money(value)}<small>finished jobs · ${pmText()}${ownUsed ? ` · ${isk(ownUsed)} of it from own products` : ""}</small></div>
-    <div class="m-tile big"><span>Profit so far</span>${money(profit, true)}<small>${spent ? pct(profit / spent * 100) + " on money spent" : "no purchases entered yet (step 2) – costs count as 0"}</small></div>
+    <div class="m-tile"${tipAttr("Sum of all purchases you entered (bought × paid).")}><span>Spent in total</span>${money(spent)}<small>tracked purchases</small></div>
+    <div class="m-tile"${tipAttr("Jita value of all jobs marked as done.")}><span>Value produced</span>${money(value)}<small>finished jobs · ${pmText()}${ownUsed ? ` · ${isk(ownUsed)} of it from own products` : ""}</small></div>
+    <div class="m-tile big"${tipAttr("Value produced − money spent − own intermediate products used up.")}><span>Profit so far</span>${money(profit, true)}<small>${spent ? pct(profit / spent * 100) + " on money spent" : "no purchases entered yet (step 2) – costs count as 0"}</small></div>
     ${live ? `<div class="m-tile"><span>Expected this month (${monthName(live.month, true)})</span>${money(expValue - expCost, true)}<small>${isk(expValue)} value − ${isk(expCost)} costs</small></div>` : ""}
   </div>`;
   // money per month as bars
@@ -1064,7 +1153,7 @@ function overviewHtml() {
             const s = j - x.i + 1;
             if (s < 1 || s > x.len) return "<td></td>";
             const st = j < cur || cur < 0 ? "past" : j === cur ? "now" : "future";
-            return `<td><span class="gstage s${s} ${st}" title="${STAGE_TEXT[s][0]}">${s === 1 ? "Simple" : s === 2 ? "Complex" : "Components"}</span></td>`;
+            return `<td><span class="gstage s${s} ${st}" title="${STAGE_TEXT[s][0]}: ${STAGE_TEXT[s][1]}">${s === 1 ? "Simple" : s === 2 ? "Complex" : "Components"}</span></td>`;
           }).join("") + "</tr>";
       }).join("") + `</tbody></table></div><p class="muted small">Each run starts with simple reactions; complex reactions follow one month later, components another month later. Faded = done, outlined = upcoming.</p></div>`;
   }
@@ -1087,16 +1176,16 @@ function createDialogHtml() {
     <h2>Create a new plan</h2>
     <p class="muted small">Pick what you want to make. Afterwards the planner shows what to buy, which reactions to start and when.</p>
     <div class="dlg-grid">
-      <label class="field">Start month<input id="cpMonth" type="month" value="${id}"></label>
-      <label class="field">Runs per job<input id="cpRuns" type="number" min="1" value="${state.campaign.runsPerJob || 544}"></label>
-      <label class="field">Reaction slots (0 = no limit)<input id="cpSlots" type="number" min="0" value="${state.campaign.slots ?? 30}"></label>
+      <label class="field"${tipAttr("The month in which the first (simple) reactions start.")}>Start month<input id="cpMonth" type="month" value="${id}"></label>
+      <label class="field"${tipAttr("Runs per reaction job. 544 runs ≈ 30 days with Reactions V, T2 rigs and a Tatara.")}>Runs per job<input id="cpRuns" type="number" min="1" value="${state.campaign.runsPerJob || 544}"></label>
+      <label class="field"${tipAttr("How many reaction jobs you can run at the same time.")}>Reaction slots (0 = no limit)<input id="cpSlots" type="number" min="0" value="${state.campaign.slots ?? 30}"></label>
     </div>
     <h3>What do you want to make?</h3>
     <div class="add-row"><div class="suggest-wrap"><input id="cpName" autocomplete="off" placeholder="Reaction or component – type to search"></div><input id="cpQty" type="number" min="1" placeholder="Jobs / units"><button type="button" class="btn" id="cpAdd">Add</button></div>
     <ul class="cp-list" id="cpList"><li class="muted">Nothing added yet.</li></ul>
     <label class="field">Your stock (optional, paste from EVE)<textarea id="cpStock" class="stock" style="height:90px"></textarea></label>
     <div class="cp-preview" id="cpPreview"><span class="muted small">Add something to see costs and profit live.</span></div>
-    <label class="field inline"><input type="checkbox" id="cpKeep" checked> keep the current plan's history (only add a new run)</label>
+    <label class="field inline"${tipAttr("On: the new run is added to your plan. Off: the whole plan is replaced (export it first if you want to keep it).")}><input type="checkbox" id="cpKeep" checked> keep the current plan's history (only add a new run)</label>
     <div class="planner-actions"><button type="button" class="btn primary" id="cpCreate">Create plan</button><button type="button" class="btn ghost" id="cpCancel">Cancel</button></div>
   </form></dialog>`;
 }
@@ -1109,10 +1198,10 @@ function previewHtml(v, prices) {
   const pm = PM();
   const row = (label, obj, signed) => `<tr><td class="left">${label}</td>${MODES.map(m => `<td class="${m === pm ? "hl" : ""} ${signed ? sign(obj[m]) : ""}" title="${full(obj[m])}">${isk(obj[m])}</td>`).join("")}</tr>`;
   return `<div class="money small-money">
-      <div class="m-tile"><span>Material costs</span>${money(v.cost[pm])}<small>${v.shoppingItems} items to buy</small></div>
+      <div class="m-tile"${tipAttr("All materials for all months of the run, minus the stock you pasted.")}><span>Material costs</span>${money(v.cost[pm])}<small>${v.shoppingItems} items to buy</small></div>
       <div class="m-tile"><span>Value of the products</span>${money(v.value[pm])}<small>${v.products.length} products</small></div>
       <div class="m-tile big"><span>Profit</span>${money(v.profit[pm], true)}<small>${v.margin[pm] != null ? pct(v.margin[pm]) + " on costs" : ""} · ${pmText()}</small></div>
-      <div class="m-tile"><span>Run</span><b>${v.months} month${v.months > 1 ? "s" : ""}</b><small>${v.jobs} reaction jobs</small></div>
+      <div class="m-tile"${tipAttr("How many months the run takes and how many reaction jobs it needs in total.")}><span>Run</span><b>${v.months} month${v.months > 1 ? "s" : ""}</b><small>${v.jobs} reaction jobs</small></div>
     </div>
     <table class="mini"><thead><tr><th class="left"></th>${MODES.map(m => `<th class="${m}">${MODE_TEXT[m]}</th>`).join("")}</tr></thead><tbody>
       ${row("Costs", v.cost)}${row("Value", v.value)}${row("Profit", v.profit, true)}</tbody></table>
