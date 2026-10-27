@@ -154,6 +154,8 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  details.janice .panel { width: 290px; }
+  details.janice .panel .btn { text-align: left; }
   .hint { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(217,164,65,.1); border: 1px solid rgba(217,164,65,.35); }
   details.calc { margin-top: 10px; }
   details.calc > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
@@ -737,6 +739,39 @@ function exportCsv() {
   download("reactions", [head, ...state.rows.map(r => [META.calculators[r.calculator], r.groupTitle, r.name, r.id,
     ...MODES.map(m => r[`cost_${m}`]), ...MODES.map(m => r[`profit_${m}`]), r.runs, (r.notes || []).join("; "), r.error])]);
 }
+// ---------- item lists for EVE Multibuy / Janice ----------
+const JANICE_URL = "https://janice.e-351.com/";
+const itemText = list => list.filter(([, q]) => q > 0).map(([n, q]) => `${n}\t${Math.ceil(q)}`).join("\n");
+async function copyText(text) {
+  // navigator.clipboard only exists on https/localhost - on http://<server-ip> use the old way
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch {}
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  (document.querySelector("dialog[open]") || document.body).appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch {}
+  ta.remove();
+  return ok;
+}
+function downloadText(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain" }));
+  a.download = `${name}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function copyItems(list, what, { janice = false, say = status, hint = "" } = {}) {
+  const text = itemText(list), n = list.filter(([, q]) => q > 0).length;
+  if (!n) return say(`Nothing to copy – ${what} is empty.`);
+  if (await copyText(text)) {
+    say(`${n} items (${what}) copied` + (janice ? " – paste them into Janice (Ctrl+V) and press Submit." : hint || "."));
+    if (janice) window.open(JANICE_URL, "_blank", "noopener");
+  } else {
+    downloadText(what.replace(/\W+/g, "-"), text);
+    say(`Copying is blocked by the browser – downloaded ${what} as .txt instead.`);
+  }
+}
 function download(name, rows) {
   const q = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   const a = document.createElement("a");
@@ -1050,6 +1085,11 @@ function stepBuyHtml(month, p) {
   return `<div class="toolbar">
       <button class="btn" id="copyBuy"${tipAttr("Copies the remaining items. In EVE open the market → Multibuy → paste.")}>📋 Copy for EVE Multibuy</button>
       ${ro ? "" : `<button class="btn ghost" id="allBought" title="Fills in everything as bought at the current ${pmText()} price. You can correct the prices afterwards.">Mark all as bought</button>`}
+      <details class="opts janice"><summary class="btn"${tipAttr("Copy the list for Janice (janice.e-351.com) to get an appraisal of the materials.")}>🧮 Janice ▾</summary><div class="panel">
+        <button class="btn small" data-janice="remaining"${tipAttr("Only what you still have to buy. Janice opens in a new tab – paste with Ctrl+V.")}>Copy still to buy → Janice</button>
+        <button class="btn small" data-janice="need"${tipAttr("Everything the jobs of this month need, ignoring your stock and purchases.")}>Copy everything needed → Janice</button>
+        <button class="btn small ghost" data-janice="txt"${tipAttr("Download the remaining items as a text file (Name, tab, quantity) – works for Janice and EVE Multibuy.")}>Download as .txt</button>
+      </div></details>
       <button class="btn ghost" id="csvBuy"${tipAttr("Download the shopping list as CSV.")}>Export CSV</button>
       <span class="grow"></span><span class="muted small">Enter what you bought – the list updates and the money spent counts into the profit.</span>
     </div>` + tableHtml("m_shop", p.shopping, cols, { foot }) +
@@ -1275,6 +1315,10 @@ function previewHtml(v, prices) {
       return `<p class="small hint">💡 ${left.length} simple product${left.length > 1 ? "s are" : " is"} left over (${isk(lv)}), because a reaction job always runs completely.
         One simple job feeds about two complex jobs, so even job counts use them best. The rest stays in your stock and is counted as value.</p>`;
     })()}
+    <div class="planner-actions" style="margin-top:10px">
+      <button type="button" class="btn small" data-janice-run${tipAttr("Copies all materials of the whole run (minus your stock) and opens Janice for an appraisal.")}>🧮 Copy materials → Janice</button>
+      <button type="button" class="btn small ghost" data-janice-run="txt"${tipAttr("Download the materials of the whole run as a text file.")}>Download as .txt</button>
+    </div>
     <details class="calc"><summary>How is this calculated?</summary>${calcHtml(v)}</details>
     <p class="muted small">${priceAge(prices)}. Without job install costs and market fees.
       ${v.unknown.length ? `<span class="note">Unknown: ${esc(v.unknown.join(", "))}</span>` : ""}
@@ -1322,7 +1366,13 @@ function bindCreateDialog() {
       try {
         const r = await api("/api/campaign/preview", { settings: formSettings(), jobs: orders.jobs, components: orders.components,
                                                       stock: $("cpStock").value, runsPerJob: Number($("cpRuns").value) || 544 });
-        if (n === seq && $("cpPreview")) $("cpPreview").innerHTML = previewHtml(r.preview, r.prices);
+        if (n === seq && $("cpPreview")) {
+          $("cpPreview").innerHTML = previewHtml(r.preview, r.prices);
+          const mats = r.preview.materials.map(m => [m.name, m.quantity]);
+          for (const b of $("cpPreview").querySelectorAll("[data-janice-run]")) b.onclick = () => b.dataset.janiceRun === "txt"
+            ? downloadText("run-materials", itemText(mats))
+            : copyItems(mats, "materials of the run", { janice: true, say: msg });
+        }
       } catch (e) { if ($("cpPreview")) $("cpPreview").innerHTML = `<span class="note">${esc(e.message)}</span>`; }
       if ($("cpPreview")) $("cpPreview").classList.remove("loading");
     }, 350);
@@ -1537,10 +1587,13 @@ function bindPlanner(items) {
   if ($("reopen")) $("reopen").onclick = () => calcMonth("/api/campaign/reopen");
   const p = state.monthPlan;
   if (p && $("copyBuy")) {
-    $("copyBuy").onclick = async () => {
-      const text = p.shopping.filter(x => x.remaining > 0).map(x => `${x.name}\t${x.remaining}`).join("\n");
-      try { await navigator.clipboard.writeText(text); status("Shopping list copied – paste it into EVE's Multibuy window."); }
-      catch { prompt("Copy the shopping list:", text); }
+    $("copyBuy").onclick = () => copyItems(p.shopping.map(x => [x.name, x.remaining]), "still to buy",
+                                           { hint: " – in EVE open the market → Multibuy and paste." });
+    for (const b of document.querySelectorAll("[data-janice]")) b.onclick = () => {
+      b.closest("details").open = false;
+      if (b.dataset.janice === "txt") return downloadText(`materials-${p.month}`, itemText(p.shopping.map(x => [x.name, x.remaining])));
+      const need = b.dataset.janice === "need";
+      copyItems(p.shopping.map(x => [x.name, need ? x.need : x.remaining]), need ? `all materials ${p.month}` : `still to buy ${p.month}`, { janice: true });
     };
     if ($("allBought")) $("allBought").onclick = () => {
       readMonth();

@@ -79,8 +79,10 @@ als Spalten nebeneinander**. Die Einstellungen sind eingeklappt, oben steht eine
      Materialkosten, Wert der Produkte, Profit und Marge (Buy/Split/Sell), wie viele Monate der
      Durchlauf dauert und wie viele Jobs er braucht (ohne Job-Installationskosten und Marktgebühren).
      Der neue Durchlauf wird an den bestehenden Plan angehängt oder ersetzt ihn.
+     „Copy materials → Janice“ kopiert alle Materialien des ganzen Durchlaufs für eine Janice-Appraisal.
    - **Jeder Monat in 4 Schritten:** ① *Orders & stock* (Aufträge + Lager aus EVE einfügen),
-     ② *Buy materials* (Einkaufsliste, „Copy for EVE Multibuy“, „Mark all as bought“),
+     ② *Buy materials* (Einkaufsliste, „Copy for EVE Multibuy“, **🧮 Janice**: Liste kopieren und
+     janice.e-351.com öffnen bzw. als .txt herunterladen, „Mark all as bought“),
      ③ *Reaction checklist* (jede Reaction mit Häkchen *started* / *done*, Fortschrittsbalken pro Stufe,
      „All started“ / „All done“), ④ *Close month*. Oben stehen Kosten → Wert = erwarteter Profit.
    - **Preise:** Ein Schalter Buy / Split / Sell gilt für den ganzen Planer.
