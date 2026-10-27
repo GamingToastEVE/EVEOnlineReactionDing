@@ -1,6 +1,7 @@
 """Small local web server for the browser interface (stdlib only)."""
 
 import json
+from pathlib import Path
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,10 +14,30 @@ from .client import ApiError, Client
 from .engine import _finite, calculate, warnings
 
 
+def program_version():
+    """Git commit of the running code (short hash), or "unknown" (e.g. in the .exe)."""
+    git = Path(__file__).resolve().parent.parent / ".git"
+    try:
+        head = (git / "HEAD").read_text().strip()
+        if head.startswith("ref: "):
+            ref = head[5:]
+            path = git / ref
+            if path.exists():
+                return path.read_text().strip()[:7]
+            for line in (git / "packed-refs").read_text().splitlines():
+                if line.endswith(" " + ref):
+                    return line[:7]
+            return "unknown"
+        return head[:7]
+    except OSError:
+        return "unknown"
+
+
 def make_handler(store):
     client = Client()
     lock = threading.Lock()
     cache = {}
+    version = program_version()
 
     def recipes():
         """Official CCP recipes (loaded once per program start)."""
@@ -92,6 +113,7 @@ def make_handler(store):
                 return self._send(200, {
                     "settings": load_settings(),
                     "storage": store.status(),
+                    "version": version,
                     "defaults": settings_mod.DEFAULTS,
                     "schema": {k: {"kind": v[0], "rule": v[1], "label": v[2]}
                                for k, v in settings_mod.SCHEMA.items()},
