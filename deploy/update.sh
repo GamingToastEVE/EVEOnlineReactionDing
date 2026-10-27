@@ -83,7 +83,7 @@ rollback() {
   log "Something went wrong - going back to $(g log -1 --format='%h' "$OLD")"
   g reset --quiet --hard "$OLD"
   "$VENV/bin/pip" install -q --disable-pip-version-check -r "$APP_DIR/requirements.txt" || true
-  systemctl restart "$SERVICE"
+  systemctl restart "$SERVICE" 9>&-   # do not hand the update lock to the service
   healthy && log "Previous version is running again." || log "Previous version does not answer either - see: journalctl -u $SERVICE -n 50"
   exit 1
 }
@@ -99,7 +99,7 @@ log "Installing packages and running tests"
 install_and_test || rollback
 
 log "Restarting $SERVICE"
-systemctl restart "$SERVICE"
+systemctl restart "$SERVICE" 9>&-   # do not hand the update lock to the service
 if healthy; then
   log "Done - running $(g log -1 --format='%h %s')"
 else
