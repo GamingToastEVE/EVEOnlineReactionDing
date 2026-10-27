@@ -139,6 +139,42 @@ Start automatisch in den Datenordner bzw. in die Datenbank übernommen.
 In der Kommandozeile gibt es dafür: `reactionding storage` (zeigt den Speicherort),
 `reactionding storage --set user=eve password=geheim port=3306`, `--off` und `--on`.
 
+## Linux-Server / VM (Dauerbetrieb)
+
+Für Debian/Ubuntu, Fedora/RHEL/Rocky/Alma, openSUSE und Arch (mit systemd):
+
+```bash
+sudo git clone https://github.com/GamingToastEVE/EVEOnlineReactionDing.git /opt/EVEOnlineReactionDing
+cd /opt/EVEOnlineReactionDing
+sudo ./deploy/install.sh --mariadb --auto-update daily      # Optionen siehe unten
+```
+
+`install.sh` richtet einmalig alles ein (mehrfaches Ausführen ist harmlos):
+- Python-Umgebung in `/opt/eve-reaction-ding/venv`, Systembenutzer `evereaction`
+- Dienst `eve-reaction-ding` (startet beim Booten, startet bei Absturz neu)
+- Daten in `/var/lib/eve-reaction-ding/data`, Einstellungen in `/etc/eve-reaction-ding.env`
+- `--mariadb`: installiert MariaDB, legt Datenbank `eve_reaction_ding` + Benutzer mit Zufallspasswort an
+- `--auto-update hourly|daily|weekly`: systemd-Timer, der `update.sh` regelmäßig ausführt
+- `--port 8080`, `--host 127.0.0.1` (nur lokal, z. B. hinter einem Reverse-Proxy), `--branch NAME`
+
+**Update** (von Hand oder automatisch per Timer):
+
+```bash
+sudo /opt/EVEOnlineReactionDing/deploy/update.sh           # aktualisieren, falls es Neues gibt
+sudo /opt/EVEOnlineReactionDing/deploy/update.sh --check   # nur anzeigen, was neu ist
+sudo /opt/EVEOnlineReactionDing/deploy/update.sh --force   # neu installieren + neu starten
+```
+
+Ablauf: `git fetch` → Fast-Forward → Python-Pakete → **Unit-Tests** → Dienst neu starten → prüfen,
+dass die **neue Version** antwortet (`/api/meta` meldet den Git-Commit). Schlägt Test oder Start fehl,
+geht es automatisch auf die vorherige Version zurück; dieser Commit wird dann nicht erneut versucht,
+bis ein neuerer kommt. Lokale Änderungen im Ordner stoppen das Update, Daten werden nie angefasst.
+
+Nützlich: `systemctl status eve-reaction-ding` · `journalctl -u eve-reaction-ding -f` ·
+`journalctl -u eve-reaction-ding-update` (Update-Log) · `systemctl list-timers eve-reaction-ding-update.timer`.
+Das Programm hat kein Login – Port nur im eigenen Netz freigeben oder einen Reverse-Proxy mit
+Passwort davor setzen.
+
 ## Auf einem Server (z. B. Railway)
 
 `railway.json` / `Procfile` starten `python -m reactionding serve --host 0.0.0.0`; der Port kommt
