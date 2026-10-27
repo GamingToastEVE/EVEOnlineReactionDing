@@ -11,6 +11,14 @@
 # Your data (settings, plans, database) is not touched.
 set -euo pipefail
 
+# git may replace this file during the update - run from a private copy
+if [ -z "${EVE_RD_UPDATE_COPY:-}" ]; then
+  copy="$(mktemp)"
+  cp "$0" "$copy"
+  EVE_RD_UPDATE_COPY="$copy" exec bash "$copy" "$@"
+fi
+trap 'rm -f "$EVE_RD_UPDATE_COPY"' EXIT
+
 SERVICE=eve-reaction-ding
 CONFIG="${EVE_RD_CONFIG:-/etc/$SERVICE.env}"   # override for testing
 FORCE=0
@@ -31,7 +39,9 @@ done
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 # git runs as the owner of the clone (their SSH key / credentials, no "dubious ownership")
-g() { runuser -u "$REPO_OWNER" -- git -C "$APP_DIR" "$@"; }
+OWNER_HOME="$(getent passwd "$REPO_OWNER" | cut -d: -f6)"
+g() { runuser -u "$REPO_OWNER" -- env HOME="$OWNER_HOME" git -C "$APP_DIR" "$@"; }
+FAILED_FILE="$APP_DIR/.git/eve-failed-update"   # commit whose update failed - not retried automatically
 
 exec 9>"/run/$SERVICE-update.lock"
 flock -n 9 || { log "Another update is running."; exit 0; }
@@ -55,6 +65,10 @@ if [ "$OLD" != "$NEW" ]; then
   g log --format='   %h %s' "$OLD..$NEW"
 fi
 [ "$CHECK_ONLY" = 1 ] && exit 0
+if [ "$FORCE" = 0 ] && [ -f "$FAILED_FILE" ] && [ "$(cat "$FAILED_FILE")" = "$NEW" ]; then
+  log "The update to $(g rev-parse --short=7 "$NEW") failed before - waiting for a newer version (or use --force)."
+  exit 0
+fi
 
 healthy() {   # the service runs and the web interface answers with the version that is checked out
   local want
@@ -80,6 +94,7 @@ install_and_test() {
   log "Tests passed ($(printf '%s\n' "$out" | grep -o 'Ran [0-9]* tests' || echo ok))."
 }
 rollback() {
+  echo "$NEW" > "$FAILED_FILE"
   log "Something went wrong - going back to $(g log -1 --format='%h' "$OLD")"
   g reset --quiet --hard "$OLD"
   "$VENV/bin/pip" install -q --disable-pip-version-check -r "$APP_DIR/requirements.txt" || true
@@ -101,6 +116,7 @@ install_and_test || rollback
 log "Restarting $SERVICE"
 systemctl restart "$SERVICE" 9>&-   # do not hand the update lock to the service
 if healthy; then
+  rm -f "$FAILED_FILE"
   log "Done - running $(g log -1 --format='%h %s')"
 else
   log "The web interface does not answer after the update."

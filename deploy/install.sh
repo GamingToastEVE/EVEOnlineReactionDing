@@ -47,7 +47,8 @@ command -v systemctl >/dev/null || { echo "This script needs systemd (systemctl)
 
 say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 REPO_OWNER="$(stat -c %U "$APP_DIR")"
-git_owner() { runuser -u "$REPO_OWNER" -- git -C "$APP_DIR" "$@"; }
+OWNER_HOME="$(getent passwd "$REPO_OWNER" | cut -d: -f6)"
+git_owner() { runuser -u "$REPO_OWNER" -- env HOME="$OWNER_HOME" git -C "$APP_DIR" "$@"; }
 [ -n "$BRANCH" ] || BRANCH="$(git_owner rev-parse --abbrev-ref HEAD)"
 
 # --- packages ----------------------------------------------------------------
