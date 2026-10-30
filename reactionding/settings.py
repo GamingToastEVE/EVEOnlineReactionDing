@@ -25,8 +25,8 @@ DEFAULTS = {
 }
 
 # Prices are taken live from ESI (Jita 4-4) by this program. The calculator is only
-# used for quantities and job costs, so its price parameters are fixed.
-CALCULATOR_FIXED = {"inMarket": "Jita", "outMarket": "Jita", "input": "buy", "output": "sell"}
+# used for quantities and job costs.
+LEGACY_KEYS = {"inMarket", "outMarket", "input", "output"}  # price settings of older versions
 
 # key -> (kind, rule, label)
 SCHEMA = {
@@ -40,7 +40,7 @@ SCHEMA = {
     "tax": ("float", (0, 100), "Industry tax %"),
     "scc": ("float", (0, 100), "SCC surcharge %"),
     "duration": ("int", (1, 43200), "Build time (minutes)"),
-    "cycles": ("int", (1, 100000), "Cycles"),
+    "cycles": ("int", (1, 100000), "Cycles (no longer used by the calculator)"),
     "costIndex": ("float", (0, 100), "Cost index % (wormhole only)"),
     "prismaticite": ("float", (0, 100), "Prismaticite luck %"),
     "componentMe": ("int", (0, 10), "Blueprint ME % of T2 components (cost chain / planner)"),
@@ -88,7 +88,7 @@ def normalize(values=None, base=None):
     merged = dict(base or DEFAULTS)
     for key, value in (values or {}).items():
         key = ALIASES.get(key, key)
-        if key in CALCULATOR_FIXED:
+        if key in LEGACY_KEYS:
             continue  # settings of older versions (markets / price methods)
         if key not in SCHEMA:
             raise SettingsError(f"Unknown setting '{key}'")
@@ -105,20 +105,26 @@ def _fmt(value):
 
 
 def to_query(settings):
-    """Parameters for the API (all keys are sent; costIndex is ignored outside wormholes)."""
-    values = dict(settings, **CALCULATOR_FIXED)
-    values.pop("componentMe", None)
-    return {key: _fmt(value) for key, value in values.items()}
+    """Query parameters of reactions.coalition.space API v2 (/api/v2/profits).
 
-
-def to_cookies(settings):
-    """Cookies understood by the web calculator pages."""
-    cookies = {"settingsMode": "single"}
-    values = dict(settings, **CALCULATOR_FIXED)
-    values.pop("componentMe", None)
-    for key, value in values.items():
-        cookies[{"tax": "indyTax", "scc": "sccTax"}.get(key, key)] = _fmt(value)
-    return cookies
+    Prices come from ESI in this program, so the market part only has to be valid."""
+    query = {
+        "system": settings["system"],
+        "structure": "tatara" if settings["facility"] == "large" else "athanor",
+        "meRig": ("none", "t1", "t2")[int(settings["rigs"])],
+        "teRig": ("none", "t1", "t2")[int(settings["rigs"])],
+        "skill": _fmt(settings["skill"]),
+        "facilityTax": _fmt(settings["tax"]),
+        "scc": _fmt(settings["scc"]),
+        "broker": _fmt(settings["brokers"]),
+        "salesTax": _fmt(settings["sales"]),
+        "cycleDays": _fmt(round(settings["duration"] / 1440.0, 6)),
+        "prismaticiteRoll": _fmt(settings["prismaticite"]),
+        "inputHub": "jita", "outputHub": "jita", "inputMethod": "buy_order", "outputMethod": "sell_order",
+    }
+    if settings["space"] == "wormhole":
+        query["costIndex"] = _fmt(settings["costIndex"])
+    return query
 
 
 def load(path):

@@ -122,69 +122,26 @@ def _finite(value):
     return value
 
 
-def _match_web(entries, item_id, name, position):
-    for entry in entries:
-        if entry.get("id") == item_id:
-            return entry
-    for entry in entries:
-        if entry.get("name") == name:
-            return entry
-    if position < len(entries):
-        return entries[position]
-    return None
-
-
 def calculate(settings, groups=None, source="auto", client=None, workers=4, progress=None,
               prices=True):
-    """Return one Row per reaction.
+    """Return one Row per reaction (quantities and job cost: reactions.coalition.space API v2).
 
-    source: ``auto`` (API, page data for groups the API cannot handle),
-    ``api`` (API only) or ``web`` (page data only).
+    source: kept for compatibility (``auto``, ``api``, ``web``) - API v2 is used for everything.
     prices: attach live Jita prices from ESI (needed for cost/profit).
     """
     client = client or Client()
     groups = groups_for(groups) if groups is None or isinstance(groups[0], str) else groups
-    rows, api_jobs, web_groups = [], [], []
-    for group in groups:
-        use = group.source if source == "auto" else source
-        if use == "api":
-            for item_id, name in group.items:
-                row = Row(group, item_id, name, "api")
-                rows.append(row)
-                api_jobs.append(row)
-        else:
-            web_groups.append(group)
-
-    web_pages = {}
-    for calculator in sorted({g.calculator for g in web_groups}):
-        try:
-            web_pages[calculator] = client.web_results(calculator, settings)
-        except ApiError as exc:
-            web_pages[calculator] = exc
-    for group in web_groups:
-        page = web_pages[group.calculator]
-        entries = None if isinstance(page, ApiError) else page.get(group.web_key) or []
-        for position, (item_id, name) in enumerate(group.items):
-            row = Row(group, item_id, name, "web")
-            if entries is None:
-                row.error = str(page)
-            else:
-                row.result = _match_web(entries, item_id, name, position)
-                if row.result is None:
-                    row.error = "missing in calculator page data"
-            rows.append(row)
-            if progress:
-                progress(row)
+    rows = [Row(group, item_id, name, "api") for group in groups for item_id, name in group.items]
 
     def run(row):
         try:
-            row.result = client.api_calculate(row.group, row.item_id, settings)
+            row.result = client.api_calculate(row.group, row.item_id, settings, row.name)
         except ApiError as exc:
             row.error = str(exc)
         return row
 
     with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for row in pool.map(run, api_jobs):
+        for row in pool.map(run, rows):
             if progress:
                 progress(row)
 

@@ -115,7 +115,7 @@
   .badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); font-weight: 500; }
   .note { font-size: 12px; color: var(--warn); font-weight: 400; }
   .empty { color: var(--muted); padding: 44px 20px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
-  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }
   .detail-grid table { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
   .detail-grid h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
   p.warn { color: var(--warn); margin: 8px 0 0; font-size: 13px; }
@@ -154,6 +154,10 @@
   .stage { background: var(--accent); color: #15110a; border-radius: 4px; padding: 0 7px; font-size: 12px; }
 
   /* ---------- planner v2 ---------- */
+  .stepper .short, .mobile-only, small.sub.phone { display: none; }
+  .stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  small.sub { display: block; color: var(--muted); font-size: 11.5px; font-weight: 400; margin-top: 1px; }
+
   details.janice .panel { width: 290px; }
   details.janice .panel .btn { text-align: left; }
   .hint { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(217,164,65,.1); border: 1px solid rgba(217,164,65,.35); }
@@ -304,7 +308,80 @@
   .small-money { margin-top: 0; } .small-money .m-tile > b { font-size: 18px; } .small-money .m-tile.big > b { font-size: 21px; }
   table.mini { width: auto; margin-top: 10px; } table.mini td, table.mini th { padding: 3px 12px; text-align: right; }
   table.mini td.hl { font-weight: 700; background: var(--panel2); }
-</style>
+  @media (max-width: 700px) {
+    /* compact top bar that scrolls away; the step bar stays */
+    .topbar { position: static; padding: 6px 12px 0; }
+    .brand { font-size: 15px; }
+    .status { font-size: 11.5px; flex: 1 1 0; }
+    #tourBtn { padding: 3px 8px; min-height: 30px; font-size: 12px; }
+    .nav { height: 38px; }
+    .stepper small { display: none; }
+    /* no zoom on iPhone when tapping an input (needs >= 16px) */
+    input, select, textarea, .field input, .field select { font-size: 16px; }
+    input.track, .qty input, .orders input[type=number] { font-size: 16px; padding: 6px; }
+    .btn, .seg button { min-height: 38px; }
+    .toolbar { gap: 8px; }
+    .toolbar .grow { display: none; }
+    .toolbar > .muted.small { display: none; }
+    .search { min-width: 0; flex: 1 1 100%; order: 5; }
+    .mobile-only { display: inline-flex; }
+    small.sub.phone { display: block; }
+    .detail-grid > div { overflow-x: auto; }
+    tr.detail > td { padding: 10px 8px; }
+    .run-col { display: none; }
+    .stack input.track { width: 92px; }
+    /* tab bars: one line, swipe sideways */
+    .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+    .seg::-webkit-scrollbar { display: none; }
+    .seg button { white-space: nowrap; flex: none; }
+    #monthTabs, #groupTabs, #chainTabs { width: 100%; }
+    /* tables: fit the screen, names may wrap */
+    th, td { padding: 7px 8px; }
+    td.left { white-space: normal; min-width: 110px; }
+    thead th { font-size: 11px; }
+    /* planner */
+    .stepper { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; position: sticky; top: 0; z-index: 15;
+      background: var(--bg); padding: 6px 0; margin: 10px 0; }
+    .stepper button { flex-direction: column; gap: 4px; padding: 7px 2px; text-align: center; }
+    .stepper .num { width: 24px; height: 24px; font-size: 12px; }
+    .stepper .long, .stepper small { display: none; }
+    .stepper .short { display: block; font-size: 12px; }
+    .money { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .money .m-tile { padding: 8px 10px; }
+    .m-tile > small { font-size: 11px; }
+    .month-head { padding: 12px; }
+    .month-head h2 { font-size: 18px; }
+    .run-strip { font-size: 13px; }
+    .rx { padding: 8px 10px; gap: 8px; }
+    .rx-name { flex-basis: 100%; }
+    .rx .tick input { width: 22px; height: 22px; }
+    .planner-actions .btn { flex: 1 1 auto; }
+    details.opts .panel { right: auto; left: 0; }
+    details.janice .panel { right: 0; left: auto; width: min(290px, calc(100vw - 32px)); }
+    table.gantt td.left { min-width: 120px; }
+    table.gantt td.left div { display: none; }
+    table.gantt td, table.gantt th { width: 86px; padding: 6px 4px; }
+    .bars { height: 170px; gap: 6px; }
+    .bar-month { min-width: 70px; }
+    /* create plan: full screen */
+    dialog#createDlg { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; overflow-x: hidden; }
+    .dlg { padding: 14px 12px 28px; gap: 10px; }
+    .dlg > * { min-width: 0; }
+    .cp-cat { grid-template-columns: minmax(0, 1fr) 72px auto; gap: 6px; }
+    .suggest { right: auto; width: calc(100vw - 24px); max-height: 45vh; }
+    .suggest .opt { flex-wrap: wrap; row-gap: 2px; }
+    .suggest .opt span:first-child { flex: 1 1 100%; white-space: normal; }
+    .dlg-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .dlg-grid > :first-child { grid-column: 1 / -1; }
+    .dlg-grid input { width: 100%; min-width: 0; }
+    .cp-cat .cp-label { grid-column: 1 / -1; flex-direction: row; gap: 8px; align-items: baseline; }
+    .cp-orders td { padding: 5px 6px; }
+    .qty input { width: 64px; }
+    .cp-preview { padding: 8px; overflow-x: auto; }
+    .small-money { display: grid; grid-template-columns: 1fr 1fr; }
+    table.mini { font-size: 12.5px; }
+    .tour-card { width: calc(100vw - 20px); }
+  }</style>
 </head>
 <body>
 <div class="topbar">
@@ -425,6 +502,19 @@ const tipAttr = text => ` data-tip="${esc(text)}"`;
     current = el;
     timer = setTimeout(() => current === el && document.contains(el) && show(el), 250);
   };
+  const touch = window.matchMedia("(hover: none)").matches;
+  if (touch) {
+    let hideTimer = null;
+    document.addEventListener("click", e => {
+      const el = target(e.target);
+      hide();
+      if (!el || el.closest("button, a, input, select, textarea, summary, label")) return;
+      current = el; show(el);
+      clearTimeout(hideTimer); hideTimer = setTimeout(hide, 4000);
+    }, true);
+    document.addEventListener("scroll", hide, true);
+    return;
+  }
   document.addEventListener("mouseover", enter);
   document.addEventListener("focusin", enter);
   document.addEventListener("mouseout", e => { if (current && !current.contains(e.relatedTarget)) hide(); });
@@ -598,10 +688,23 @@ document.addEventListener("click", e => {
   sortState[id] = { key, asc: cur && cur.key === key ? !cur.asc : key === "name" };
   render();
 });
-const triple = (group, prefix, opts = {}) => MODES.map((m, i) => ({
+// phones: tables show one price method (switch) instead of Buy | Split | Sell side by side
+const MOBILE = window.matchMedia("(max-width: 700px)");
+const isMobile = () => MOBILE.matches;
+MOBILE.addEventListener("change", () => { if (META) render(); });
+const triple = (group, prefix, opts = {}) => (isMobile() ? [state.priceMode || "split"] : MODES).map((m, i) => ({
   key: `${prefix}_${m}`, title: MODE_TEXT[m], group, cls: m, sep: i === 0, ...opts,
   value: opts.pick ? (r => opts.pick(r, m)) : undefined,
 }));
+const priceSwitch = (extra = "") => `<div class="seg pm-switch ${extra}">${MODES.map(m => `<button data-pm="${m}"${tipAttr(MODE_TIP[m])} class="${m === state.priceMode ? "active" : ""}" style="${m === state.priceMode ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>`;
+document.addEventListener("click", e => {
+  const b = e.target.closest(".pm-switch button[data-pm]");
+  if (!b) return;
+  if (state.view === "planner") readMonth();
+  state.priceMode = b.dataset.pm;
+  try { localStorage.setItem("planPrice", state.priceMode); } catch {}
+  render();
+});
 const matches = name => !state.filter || name.toLowerCase().includes(state.filter.toLowerCase());
 
 // ---------- navigation ----------
@@ -634,14 +737,13 @@ function renderReactions() {
       <button class="btn primary" id="calc"${tipAttr("Loads all 177 reactions from reactions.coalition.space with your settings and current Jita prices (about a minute).")}>${state.rows.length ? "Recalculate" : "Calculate"}</button>
       <div class="seg" id="groupTabs">${groupTabs.map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? "active" : ""}">${esc(t)}</button>`).join("")}</div>
       <input class="search" id="search" placeholder="Search reaction…">
+      ${isMobile() ? priceSwitch("mobile-only") : ""}
       <span class="grow"></span>
-      <select id="source" title="Where quantities and job costs come from.\nauto: the API, and the calculator page for the groups where the API has known errors."><option value="auto">Source: auto</option>
-        <option value="api">Source: API only</option><option value="web">Source: calculator page</option></select>
       <button class="btn" id="csv"${tipAttr("Download the table as CSV (opens in Excel / Google Sheets).")}>Export CSV</button>
     </div>`;
   const rows = state.rows.filter(r => matches(r.name));
   if (!state.rows.length) {
-    html += `<div class="empty">Press <b>Calculate</b> to load all 177 reactions (about one minute).<br>
+    html += `<div class="empty">Press <b>Calculate</b> to load all 177 reactions (about 2 minutes the first time, then cached for 10 minutes).<br>
       <span class="small">Cost = input materials + market fees + job cost · Profit = output value − market fees − cost</span></div>`;
   } else {
     const cols = [
@@ -650,7 +752,8 @@ function renderReactions() {
           + warnIcon([...(r.notes || []), ...Object.entries(r.missingPrices || {}).map(([k, v]) => `${k}: ${v}`)]) },
       ...triple("Cost", "cost"),
       ...triple("Profit", "profit", { signed: true }),
-      { key: "profitPercent_split", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, htip: "Profit in % of the cost (Split prices)." },
+      isMobile() ? { key: `profitPercent_${state.priceMode}`, title: "Margin", sep: true, fmt: pct, signed: true, htip: "Profit in % of the cost." }
+                 : { key: "profitPercent_split", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, htip: "Profit in % of the cost (Split prices)." },
     ];
     const opts = {
       rowAttrs: r => `class="clickable ${r.error ? "err" : ""} ${state.open.has(r.group + ":" + r.id) ? "open" : ""}" data-key="${r.group}:${r.id}"`,
@@ -703,7 +806,7 @@ function reactionDetail(row) {
   </div>`;
 }
 async function runReactions() {
-  const settings = formSettings(), source = $("source").value;
+  const settings = formSettings(), source = "api";
   $("calc").disabled = true;
   state.rows = []; state.open.clear();
   const groups = META.groups;
@@ -788,6 +891,7 @@ function renderChain() {
       <button class="btn primary" id="loadChain">${state.chain ? "Recalculate" : "Calculate"}</button>
       <div class="seg" id="chainTabs">${CHAIN_TABS.map(([k, t]) => `<button data-ctab="${k}" class="${k === state.chainTab ? "active" : ""}">${t}${state.chain ? ` <span class="muted small">${state.chain[k].length}</span>` : ""}</button>`).join("")}</div>
       <input class="search" id="search" placeholder="Search item…">
+      ${isMobile() ? priceSwitch("mobile-only") : ""}
     </div>`;
   if (!state.chain) {
     html += `<div class="empty">Press <b>Calculate</b> for the cost chain (like sheet 7).<br>
@@ -799,8 +903,9 @@ function renderChain() {
       ...triple("Jita price", "price", { fmt: unit, pick: (r, m) => r.price[m] }),
       ...triple("Production cost", "cost", { fmt: unit, pick: (r, m) => r.cost[m] }),
       ...triple("Profit per unit", "profit", { fmt: unit, signed: true, pick: (r, m) => r.profit[m] }),
+      ...(isMobile() ? [{ key: "margin", title: "Margin", sep: true, fmt: pct, signed: true, value: r => r.margin[state.priceMode], htip: "Profit in % of the production cost." }] : [
       { key: "margin", title: "Margin<br>(Split)", sep: true, fmt: pct, signed: true, value: r => r.margin.split, htip: "Profit in % of the production cost (Split)." },
-      { key: "ppr", title: "Profit / run<br>(Split)", fmt: isk, signed: true, value: r => r.profitPerRun.split, htip: "Profit of one run (one reaction cycle or one blueprint run)." },
+      { key: "ppr", title: "Profit / run<br>(Split)", fmt: isk, signed: true, value: r => r.profitPerRun.split, htip: "Profit of one run (one reaction cycle or one blueprint run)." }]),
     ];
     const rows = state.chain[state.chainTab].filter(r => matches(r.name));
     html += tableHtml("chain_" + state.chainTab, rows, cols);
@@ -826,6 +931,7 @@ async function loadChain() {
 // ---------- monthly planner (sheet 8.1 as a 1-3 month pipeline) ----------
 const RUN_MONTHS = { simple: 1, hybrid: 1, complex: 2, component: 3, capital: 3 };
 const STEPS = [["plan", "Orders & stock"], ["buy", "Buy materials"], ["jobs", "Reaction checklist"], ["close", "Close month"]];
+const STEP_SHORT = { plan: "Orders", buy: "Buy", jobs: "Checklist", close: "Close" };
 const STEP_TIP = {
   plan: "Step 1: what you want to make, and your stock pasted from EVE.",
   buy: "Step 2: shopping list for this month. Enter what you bought – it counts into the costs.",
@@ -962,7 +1068,7 @@ async function renderPlanner() {
       <button class="btn primary" id="createPlan"${tipAttr("Start a new run: pick what you want to make and see costs and profit live before you commit.")}>＋ Create plan</button>
       <span class="grow"></span>
       <span class="muted small">Prices</span>
-      <div class="seg" id="priceMode">${MODES.map(m => `<button data-pm="${m}"${tipAttr(MODE_TIP[m] + "\nUsed for all numbers in the planner.")} class="${m === PM() ? "active" : ""}" style="${m === PM() ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>
+      <div class="seg pm-switch" id="priceMode">${MODES.map(m => `<button data-pm="${m}"${tipAttr(MODE_TIP[m] + "\nUsed for all numbers in the planner.")} class="${m === PM() ? "active" : ""}" style="${m === PM() ? `color:var(--${m})` : ""}">${MODE_TEXT[m]}</button>`).join("")}</div>
       <details class="opts"><summary class="btn small ghost"${tipAttr("Runs per job, reaction slots, export / import of the plan.")}>⚙ Options</summary><div class="panel">
         <label class="field"${tipAttr("Runs per reaction job. 544 runs ≈ 30 days with Reactions V, T2 rigs and a Tatara.")}>Runs per job<input id="runsPerJob" type="number" min="1" step="1" value="${c.runsPerJob || 544}"></label>
         <label class="field"${tipAttr("How many reaction jobs you can run at the same time (all characters). Jobs that do not fit wait for the next month.")}>Reaction slots (0 = no limit)<input id="slots" type="number" min="0" step="1" value="${c.slots ?? 30}"></label>
@@ -981,7 +1087,7 @@ async function renderPlanner() {
   html += `<div class="stepper">` + STEPS.map(([k, t], i) => {
     const s = stepState(k, p, month);
     return `<button data-step="${k}"${tipAttr(STEP_TIP[k])} class="${k === step ? "active" : ""} ${s.done ? "done" : ""}">
-      <span class="num">${s.done ? "✓" : i + 1}</span><span><b>${t}</b><small>${esc(s.sub)}</small></span></button>`;
+      <span class="num">${s.done ? "✓" : i + 1}</span><span><b class="long">${t}</b><b class="short">${STEP_SHORT[k]}</b><small>${esc(s.sub)}</small></span></button>`;
   }).join("") + `</div>`;
   html += `<div class="step-body">` + ({ plan: stepPlanHtml, buy: stepBuyHtml, jobs: stepJobsHtml, close: stepCloseHtml }[step])(month, p) + `</div>`;
   $("view").innerHTML = html + createDialogHtml();
@@ -1081,6 +1187,17 @@ function stepBuyHtml(month, p) {
     { key: "price", title: `${pmText()} / unit`, cls: pm, sep: true, value: r => r.price[pm], fmt: unit },
     { key: "cost", title: "Cost of the rest", cls: pm, value: r => r.cost[pm] },
   ];
+  if (isMobile()) {   // item (with to-buy and price below), bought, paid, cost of the rest
+    const keep = new Set(["name", "bought", "cost"]);
+    const paid = cols.find(c => c.key === "paid");
+    cols.splice(0, cols.length, ...cols.filter(c => keep.has(c.key)));
+    const bought = cols.find(c => c.key === "bought");
+    Object.assign(bought, { title: "Bought / paid", htip: "Top: how many you bought. Bottom: price you paid per unit.",
+      html: (h => r => `<div class="stack">${h(r)}${paid.html(r)}</div>`)(bought.html) });
+    cols[0] = { ...cols[0], html: r => `<span class="${r.remaining ? "" : "struck"}">${esc(r.name)}</span>${r.note ? warnIcon([r.note]) : ""}
+      <small class="sub">${r.remaining ? `${num(r.remaining)} to buy` : "✓ bought"} · ${unit(r.price[pm])}/u</small>` };
+    cols[cols.length - 1] = { ...cols[cols.length - 1], title: "Rest", sep: false };
+  }
   const foot = () => `<tr class="total"><td class="left">Total</td><td colspan="${cols.length - 2}" class="muted small">${isk(p.spent)} spent so far</td><td title="${full(p.shoppingTotal[pm])}">${isk(p.shoppingTotal[pm])}</td></tr>`;
   return `<div class="toolbar">
       <button class="btn" id="copyBuy"${tipAttr("Copies the remaining items. In EVE open the market → Multibuy → paste.")}>📋 Copy for EVE Multibuy</button>
@@ -1228,11 +1345,11 @@ function overviewHtml() {
       }).join("") + `</tbody></table></div><p class="muted small">Each run starts with simple reactions; complex reactions follow one month later, components another month later. Faded = done, outlined = upcoming.</p></div>`;
   }
   html += `<section class="group"><h2>Months</h2>` + tableHtml("m_over", rows, [
-    { key: "month", title: "Month", left: true, html: r => `<a href="#" data-goto-month="${c.months.findIndex(m => m.id === r.month)}">${monthName(r.month)}</a> <span class="kind">${r.closed ? "closed" : "open"}</span>${r.note ? ` <span class="muted small">${esc(r.note)}</span>` : ""}` },
+    { key: "month", title: "Month", left: true, html: r => `<a href="#" data-goto-month="${c.months.findIndex(m => m.id === r.month)}">${monthName(r.month, isMobile())}</a> <span class="kind">${r.closed ? "closed" : "open"}</span>${r.note && !isMobile() ? ` <span class="muted small">${esc(r.note)}</span>` : ""}` },
     { key: "jobsDone", title: "Jobs done", html: r => r.jobsDone == null ? "–" : num(r.jobsDone) + (r.jobsTotal != null ? ` / ${num(r.jobsTotal)}` : "") },
-    { key: "jobsCarried", title: "Carried over", fmt: num },
+    ...(isMobile() ? [] : [{ key: "jobsCarried", title: "Carried over", fmt: num }]),
     { key: "spent", title: "Spent", fmt: v => v == null ? "–" : isk(v) },
-    { key: "own", title: "Own products used", value: r => (r.usedInputValue || {})[pm], fmt: v => v == null ? "–" : isk(v), tip: () => "simple/complex products from earlier months that were used up" },
+    ...(isMobile() ? [] : [{ key: "own", title: "Own products used", value: r => (r.usedInputValue || {})[pm], fmt: v => v == null ? "–" : isk(v), tip: () => "simple/complex products from earlier months that were used up" }]),
     { key: "pv", title: `Value produced`, cls: pm, sep: true, value: r => (r.producedValue || {})[pm], fmt: v => v == null ? "–" : isk(v) },
     { key: "pr", title: "Profit", cls: pm, signed: true, value: r => (r.profit || {})[pm], fmt: v => v == null ? "–" : isk(v) }]) +
     `<p class="muted small">Profit = value produced − money spent − own products used. Simple products count when they are made, and are subtracted again when a complex reaction uses them – so nothing is counted twice. Closed months keep the prices of the day they were closed.</p></section>`;
@@ -1245,7 +1362,7 @@ const CP_CATS = [["simple", "Simple reactions", "jobs"], ["hybrid", "Hybrid reac
 function createDialogHtml() {
   const today = new Date(), id = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   return `<dialog id="createDlg"><form method="dialog" class="dlg" onsubmit="return false">
-    <h2>Create a new plan</h2>
+    <h2 id="cpTitle" tabindex="-1" style="outline:none">Create a new plan</h2>
     <p class="muted small">Pick what you want to make. Afterwards the planner shows what to buy, which reactions to start and when.</p>
     <div class="dlg-grid">
       <label class="field"${tipAttr("The month in which the first (simple) reactions start.")}>Start month<input id="cpMonth" type="month" value="${id}"></label>
@@ -1266,7 +1383,7 @@ function createDialogHtml() {
         <input id="cpQty" type="number" min="1" step="1" value="1" aria-label="quantity"><button type="button" class="btn" id="cpAdd">Add</button></div>
     </div>
     <div class="cp-msg note" id="cpMsg"></div>
-    <div class="tablewrap cp-orders"><table><thead><tr><th class="left">Your orders</th><th>Quantity</th><th class="left">Run</th><th></th></tr></thead>
+    <div class="tablewrap cp-orders"><table><thead><tr><th class="left">Your orders</th><th>Quantity</th><th class="left run-col">Run</th><th></th></tr></thead>
       <tbody id="cpList"></tbody></table></div>
     <label class="field">Your stock (optional, paste from EVE)<textarea id="cpStock" class="stock" style="height:90px"></textarea></label>
     <div class="cp-preview" id="cpPreview"><span class="muted small">Add something to see costs and profit live.</span></div>
@@ -1333,11 +1450,11 @@ function bindCreateDialog() {
     const all = [...Object.entries(orders.jobs), ...Object.entries(orders.components)];
     $("cpList").innerHTML = all.length ? all.map(([n, q]) => {
       const [key, k] = kindOf[n];
-      return `<tr><td class="left">${esc(n)} <span class="kind">${k}</span></td>
+      return `<tr><td class="left">${esc(n)} <span class="kind">${k}</span><small class="sub phone">${key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""}</small></td>
         <td><div class="qty"><button type="button" class="btn small ghost" data-step="-1" data-name="${esc(n)}" aria-label="less">−</button>
           <input type="number" min="1" step="1" value="${q}" data-cpqty="${esc(n)}">
           <button type="button" class="btn small ghost" data-step="1" data-name="${esc(n)}" aria-label="more">+</button></div></td>
-        <td class="left muted small">${key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
+        <td class="left muted small run-col">${key === "jobs" ? "jobs" : "units"} · ${RUN_MONTHS[k]} month${RUN_MONTHS[k] > 1 ? "s" : ""}</td>
         <td><button type="button" class="x" data-cprm="${esc(n)}" title="Remove">×</button></td></tr>`;
     }).join("") : '<tr><td class="left muted" colspan="4">Nothing added yet – pick something above.</td></tr>';
     for (const b of $("cpList").querySelectorAll("[data-cprm]")) b.onclick = () => { delete orders[kindOf[b.dataset.cprm][0]][b.dataset.cprm]; draw(); };
@@ -1501,15 +1618,9 @@ function bindPlanner(items) {
     const i = Number(a.dataset.gotoMonth); if (i < 0) return;
     state.showOverview = false; state.monthIndex = i; state.monthPlan = null; calcMonth(undefined, {}, false);
   };
-  $("priceMode").onclick = e => {
-    const b = e.target.closest("button[data-pm]"); if (!b) return;
-    readMonth(); state.priceMode = b.dataset.pm;
-    try { localStorage.setItem("planPrice", state.priceMode); } catch {}
-    render();
-  };
   $("createPlan").onclick = () => {
     if (!$("createDlg")) { $("view").insertAdjacentHTML("beforeend", createDialogHtml()); }
-    readMonth(); bindCreateDialog(); $("createDlg").showModal(); $("cpName").focus();
+    readMonth(); bindCreateDialog(); $("createDlg").showModal(); if (isMobile()) $("cpTitle").focus(); else $("cpName").focus();
   };
   for (const id of ["runsPerJob", "slots"]) if ($(id)) $(id).onchange = () => calcMonth(undefined, {}, !state.showOverview);
   $("exportPlan").onclick = () => {

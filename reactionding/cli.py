@@ -321,7 +321,7 @@ def cmd_verify(args):
 
     settings = resolve_settings(args)
     total = sum(len(g.items) for g in GROUPS.values())
-    print(f"Checking {total} reactions in {len(GROUPS)} groups against API, calculator page"
+    print(f"Checking {total} reactions in {len(GROUPS)} groups against the calculator (API v2)"
           + ("" if args.skip_sde else " and EVE SDE") + " ...", file=sys.stderr)
     report = run_all(settings, client=Client(per_second=args.rate), workers=args.workers,
                      skip_sde=args.skip_sde, progress=progress_printer(total, sys.stderr.isatty()))
@@ -330,27 +330,19 @@ def cmd_verify(args):
     if args.json:
         json.dump(report, sys.stdout, indent=2)
         print()
-        return 1 if any(not i["known"] for i in report["issues"]) or report["errors"] else 0
-    print(f"\n{'Group':<16} {'Reactions':>9} {'API ok':>7} {'= page':>7}  Program uses")
+        return 1 if report["issues"] or report["errors"] else 0
+    print(f"\n{'Group':<16} {'Reactions':>9} {'API ok':>7}")
     for key, st in report["stats"].items():
-        g = GROUPS[key]
-        print(f"{key:<16} {st['total']:>9} {st['api_ok']:>7} {st['match']:>7}  "
-              f"{'API' if g.source == 'api' else 'calculator page (fallback)'}")
+        print(f"{key:<16} {st['total']:>9} {st['api_ok']:>7}")
     for err in report["errors"]:
         print(f"ERROR: {err}")
-    known = [i for i in report["issues"] if i["known"]]
-    new = [i for i in report["issues"] if not i["known"]]
-    if known:
-        print("\nKnown API problems (handled by the calculator page fallback):")
-        for key in dict.fromkeys(i["group"] for i in known):
-            count = sum(1 for i in known if i["group"] == key)
-            print(f"  {key}: {count} reactions - {GROUPS[key].issue}")
+    new = report["issues"]
     if new:
         print(f"\n{len(new)} findings:")
         for i in new:
             print(f"  [{i['check']}] {i['group']}: {i['name']}: {i['message']}")
     else:
-        print("\nNo new findings.")
+        print("\nNo findings - catalog, API and CCP recipes agree.")
     return 1 if new or report["errors"] else 0
 
 
@@ -424,7 +416,7 @@ def build_parser():
     calc.add_argument("--format", choices=("table", "csv", "json"), default="table")
     calc.add_argument("--full", action="store_true", help="json: include full calculation detail")
     calc.add_argument("--workers", type=int, default=4)
-    calc.add_argument("--rate", type=float, default=5.0, help="max API requests per second")
+    calc.add_argument("--rate", type=float, default=1.8, help="max API requests per second (the API allows 2)")
     add_settings_args(calc)
     calc.set_defaults(func=cmd_calc)
 
@@ -445,11 +437,11 @@ def build_parser():
     st.add_argument("--settings", help="settings file (default: data storage)")
     st.set_defaults(func=cmd_settings)
 
-    ver = sub.add_parser("verify", help="check every reaction: API vs calculator page vs EVE SDE")
+    ver = sub.add_parser("verify", help="check every reaction: catalog, API v2 and EVE SDE")
     ver.add_argument("--skip-sde", action="store_true")
     ver.add_argument("--json", action="store_true")
     ver.add_argument("--workers", type=int, default=4)
-    ver.add_argument("--rate", type=float, default=5.0)
+    ver.add_argument("--rate", type=float, default=1.8)
     add_settings_args(ver)
     ver.set_defaults(func=cmd_verify)
 
@@ -458,7 +450,7 @@ def build_parser():
     chk.add_argument("file")
     chk.add_argument("--fixes", action="store_true", help="print suggested corrected formulas")
     chk.add_argument("--json", action="store_true")
-    chk.add_argument("--rate", type=float, default=5.0)
+    chk.add_argument("--rate", type=float, default=1.8)
     chk.set_defaults(func=cmd_check_sheet)
 
     ch = sub.add_parser("chain", help="cost chain like sheet 7 (moon goo -> reactions -> T2 components)")

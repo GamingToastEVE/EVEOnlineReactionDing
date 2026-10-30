@@ -1,4 +1,9 @@
-"""HTTP access to reactions.coalition.space (API + calculator page data)."""
+"""HTTP access to reactions.coalition.space API v2 (https://reactions.coalition.space/api).
+
+API v1 and the calculator page data used by older versions were removed by the site.
+Results are converted into the shape the rest of the program works with:
+{"runs", "input": [{name, quantity}], "output": [{name, quantity}], "taxes": {...},
+ "cycle_data": {"total_time": minutes}, "v2": <original totals>}."""
 
 import json
 import threading
@@ -7,8 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import devalue
-from .settings import to_cookies, to_query
+from .settings import to_query
 
 BASE_URL = "https://reactions.coalition.space"
 # Cloudflare answers the default Python user agent with "error code: 1010".
@@ -25,7 +29,7 @@ class ApiError(RuntimeError):
 
 
 class RateLimiter:
-    """Spaces requests out; the API allows roughly 90 requests / 60 s."""
+    """Spaces requests out; API v2 allows 120 requests per minute and IP."""
 
     def __init__(self, per_second):
         self.interval = 1.0 / per_second if per_second > 0 else 0.0
@@ -43,11 +47,16 @@ class RateLimiter:
 
 
 class Client:
-    def __init__(self, base_url=BASE_URL, timeout=60, retries=4, per_second=5.0):
+    CACHE_SECONDS = 600  # the site refreshes its prices/indices every 30 minutes
+
+    def __init__(self, base_url=BASE_URL, timeout=60, retries=4, per_second=1.8):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.retries = retries
-        self.limiter = RateLimiter(per_second)
+        self.limiter = RateLimiter(min(per_second, 1.9))
+        self._cache = {}
+        self._cache_lock = threading.Lock()
+        self._slugs = None
 
     def _get(self, url, headers=None):
         request_headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
@@ -65,8 +74,9 @@ class Client:
                     payload = json.loads(body)
                 except ValueError:
                     payload = {"error": body.strip()[:200], "code": "HTTP_ERROR"}
-                last_error = ApiError(exc.code, payload.get("code", "HTTP_ERROR"),
-                                      payload.get("error", ""), payload.get("details"))
+                err = payload.get("error") if isinstance(payload.get("error"), dict) else payload
+                last_error = ApiError(exc.code, err.get("code", payload.get("code", "HTTP_ERROR")),
+                                      err.get("message", payload.get("error", "")), err.get("details"))
                 if exc.code not in (429, 500, 502, 503, 504):
                     raise last_error from None
                 retry_after = exc.headers.get("Retry-After") if exc.headers else None
@@ -78,42 +88,68 @@ class Client:
                 time.sleep(delay)
         raise last_error
 
-    # --- API -------------------------------------------------------------
+    # --- API v2 ------------------------------------------------------------
 
-    def api_url(self, group, item_id, settings):
-        if group.calculator == "hybrid":
-            path = f"/api/v1/hybrid/{item_id}"
-        else:
-            path = f"/api/v1/{group.calculator}/{group.api_type}/{item_id}"
-        query = dict(to_query(settings), includeMeta="false")
-        return self.base_url + path + "?" + urllib.parse.urlencode(query)
+    def _cached(self, url):
+        now = time.monotonic()
+        with self._cache_lock:
+            hit = self._cache.get(url)
+            if hit and now - hit[0] < self.CACHE_SECONDS:
+                return hit[1]
+        data = self._get(url)
+        with self._cache_lock:
+            self._cache[url] = (time.monotonic(), data)
+        return data
 
-    def api_calculate(self, group, item_id, settings):
-        """One reaction from the API. Returns the single result dict."""
-        payload = self._get(self.api_url(group, item_id, settings))
-        results = payload.get("results") or []
-        if not results:
-            raise ApiError(200, "EMPTY_RESULT", f"No result for {group.key}/{item_id}")
-        return results[0]
+    def recipes(self):
+        """All reaction recipes of the site (GET /api/v2/reactions)."""
+        return self._cached(f"{self.base_url}/api/v2/reactions")
 
-    # --- calculator page data ---------------------------------------------
+    def slug(self, item_id, name):
+        """Slug of a reaction by product type id (or name)."""
+        if self._slugs is None:
+            table = {}
+            for r in self.recipes():
+                table[r["product"]["typeId"]] = r["slug"]
+                table[r["product"]["name"]] = r["slug"]
+                table[r["name"]] = r["slug"]
+            self._slugs = table
+        found = self._slugs.get(item_id) or self._slugs.get(name)
+        if not found:
+            raise ApiError(404, "NOT_FOUND", f"{name} ({item_id}) is not a reaction of the calculator")
+        return found
+
+    def api_url(self, group, item_id, settings, name=""):
+        from .catalog import v2_view
+
+        view, output = v2_view(group)
+        query = dict(to_query(settings), view=view)
+        if output != "product":
+            query["output"] = output
+        return f"{self.base_url}/api/v2/profits/{self.slug(item_id, name)}?" + urllib.parse.urlencode(query)
+
+    def api_calculate(self, group, item_id, settings, name=""):
+        """One reaction (GET /api/v2/profits/{slug}) in the program's result shape."""
+        return convert_v2(self._cached(self.api_url(group, item_id, settings, name)))
 
     def web_results(self, calculator, settings):
-        """All tables of one calculator page (dict web_key -> list of results)."""
-        cookie = "; ".join(f"{k}={urllib.parse.quote(v, safe=' -_.')}"
-                           for k, v in to_cookies(settings).items())
-        payload = self._get(f"{self.base_url}/{calculator}/__data.json", {"Cookie": cookie})
-        nodes = [n for n in devalue.decode_page(payload) if isinstance(n, dict) and "results" in n]
-        if not nodes:
-            raise ApiError(200, "NO_PAGE_DATA", f"No results in {calculator} page data")
-        page = nodes[-1]
-        results = page["results"]
-        if calculator == "hybrid":
-            results = {"hybrid": results}
-        # The page echoes the settings it used; make sure our cookies were honoured.
-        for key in ("inMarket", "outMarket", "system", "input", "output", "space"):
-            sent = to_cookies(settings)[key]
-            if key in page and str(page[key]) != sent:
-                raise ApiError(200, "SETTINGS_IGNORED",
-                               f"Page used {key}={page[key]!r} instead of {sent!r}")
-        return results
+        raise ApiError(410, "REMOVED", "the calculator page data is not used any more (API v2 replaces it)")
+
+
+def convert_v2(d):
+    """API v2 calculation -> result dict used by engine/verify/sheetcheck."""
+    item = lambda x: {"name": x["name"], "id": x.get("typeId"), "quantity": x["quantity"]}  # noqa: E731
+    job = d.get("jobCost") or {}
+    totals = d.get("totals") or {}
+    seconds = totals.get("slotSeconds") or (d.get("runTimeSeconds") or 0) * (d.get("runs") or 0)
+    return {
+        "name": d.get("name"), "slug": d.get("slug"), "view": d.get("view"), "runs": d.get("runs"),
+        "input": [item(x) for x in d.get("inputs") or []],
+        "output": [item(x) for x in d.get("outputs") or []],
+        "surplus": [item(x) for x in d.get("surplus") or []],
+        "chain": d.get("chain"),
+        "taxes": {"system": job.get("systemCost"), "total": {"install": job.get("total") or 0.0}},
+        "cycle_data": {"total_time": seconds / 60.0 if seconds else None},
+        "warnings": d.get("warnings") or [],
+        "v2": totals,
+    }

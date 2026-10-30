@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from openpyxl.utils import column_index_from_string, get_column_letter
 
 from . import settings as settings_mod
-from .engine import calculate
+from .engine import calculate, outputs
 
 FUEL_BLOCKS = ("Helium Fuel Block", "Hydrogen Fuel Block", "Nitrogen Fuel Block", "Oxygen Fuel Block")
 RECIPE_GROUPS = ("simple", "complex", "hybrid")
@@ -40,13 +40,14 @@ def load_recipes(client=None):
     values = settings_mod.normalize({"rigs": 0, "facility": "medium"})
     recipes, errors = {}, []
     for row in calculate(values, list(RECIPE_GROUPS), client=client, prices=False):
-        if not row.ok:
-            errors.append(f"{row.name}: {row.error}")
+        if not row.result or not row.result.get("runs"):
+            errors.append(f"{row.name}: {row.error or 'no result'}")
             continue
         res, runs = row.result, row.result["runs"]
+        product = [x for x in outputs(res) if x["name"] == row.name] or outputs(res)
         recipes[row.name] = {
             "group": row.group.key,
-            "out": res["output"]["quantity"] / runs,
+            "out": product[0]["quantity"] / runs,
             "in": {x["name"]: x["quantity"] / runs for x in res["input"]},
         }
     return recipes, errors

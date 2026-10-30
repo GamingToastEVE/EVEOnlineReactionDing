@@ -33,7 +33,7 @@ class FakeClient:
         self.api_calls = []
         self.web_calls = []
 
-    def api_calculate(self, group, item_id, values):
+    def api_calculate(self, group, item_id, values, name=""):
         self.api_calls.append((group.key, item_id))
         if item_id == 30303:
             raise ApiError(400, "TYPE_ID_MISMATCH", "boom")
@@ -79,8 +79,8 @@ class SettingsTest(unittest.TestCase):
     def test_old_price_settings_are_ignored(self):
         values = settings.normalize({"inMarket": "Amarr", "input": "split"})
         self.assertNotIn("inMarket", values)
-        query = settings.to_query(values)  # the calculator always gets Jita buy/sell
-        self.assertEqual((query["inMarket"], query["input"], query["output"]), ("Jita", "buy", "sell"))
+        query = settings.to_query(values)  # API v2: Jita, prices come from ESI anyway
+        self.assertEqual((query["inputHub"], query["outputHub"]), ("jita", "jita"))
         self.assertNotIn("componentMe", query)
 
     def test_invalid(self):
@@ -88,13 +88,13 @@ class SettingsTest(unittest.TestCase):
             with self.assertRaises(settings.SettingsError):
                 settings.normalize(bad)
 
-    def test_query_and_cookies(self):
-        s = settings.normalize({"tax": 1})
-        self.assertEqual(settings.to_query(s)["tax"], "1")
-        self.assertEqual(settings.to_query(s)["sales"], "3.6")
-        cookies = settings.to_cookies(s)
-        self.assertEqual((cookies["indyTax"], cookies["sccTax"]), ("1", "4"))
-        self.assertNotIn("tax", cookies)
+    def test_v2_query(self):
+        q = settings.to_query(settings.normalize({"tax": 1, "rigs": 1, "facility": "medium", "duration": 20160}))
+        self.assertEqual((q["facilityTax"], q["salesTax"], q["broker"]), ("1", "3.6", "3"))
+        self.assertEqual((q["structure"], q["meRig"], q["teRig"], q["cycleDays"]), ("athanor", "t1", "t1", "14"))
+        self.assertNotIn("costIndex", q)  # only for wormholes, else the system's index is used
+        q = settings.to_query(settings.normalize({"space": "wormhole", "costIndex": 4.5}))
+        self.assertEqual(q["costIndex"], "4.5")
 
 
 class CatalogTest(unittest.TestCase):
@@ -108,9 +108,12 @@ class CatalogTest(unittest.TestCase):
                             ("eratic_repro", "eratic")):
             self.assertEqual(GROUPS[chain].items, GROUPS[base].items)
 
-    def test_every_web_group_documents_issue(self):
-        for g in GROUPS.values():
-            self.assertEqual(g.source == "web", bool(g.issue), g.key)
+    def test_every_group_uses_api_v2(self):
+        from reactionding.catalog import v2_view
+        self.assertTrue(all(g.source == "api" and not g.issue for g in GROUPS.values()))
+        self.assertEqual(v2_view(GROUPS["strong_chain"]), ("chain", "product"))
+        self.assertEqual(v2_view(GROUPS["refined"]), ("single", "reprocessed"))
+        self.assertEqual(v2_view(GROUPS["hybrid"]), ("single", "product"))
 
     def test_groups_for_and_find(self):
         self.assertEqual(len(groups_for(["biochemical"])), 7)
@@ -121,18 +124,15 @@ class CatalogTest(unittest.TestCase):
 
 
 class EngineTest(unittest.TestCase):
-    def test_auto_mixes_api_and_web(self):
+    def test_everything_through_the_api(self):
         client = FakeClient()
         rows = calculate(settings.normalize(), groups_for(["hybrid", "strong_chain"]), client=client,
                          prices=False)
         self.assertEqual(len(rows), 17)
-        self.assertEqual(client.web_calls, ["biochemical"])
-        self.assertEqual(len(client.api_calls), 9)
+        self.assertEqual(len(client.api_calls), 17)
         hybrid = [r for r in rows if r.group.key == "hybrid"]
-        self.assertTrue(all(r.source == "api" for r in hybrid))
+        self.assertTrue(all(r.source == "api" for r in rows))
         self.assertEqual([r.item_id for r in hybrid if r.result is None], [30303])
-        chain = [r for r in rows if r.group.key == "strong_chain"]
-        self.assertTrue(all(r.result and r.source == "web" for r in chain))
         # order follows the catalog
         self.assertEqual([r.item_id for r in hybrid], [i for i, _ in GROUPS["hybrid"].items])
 
@@ -159,12 +159,16 @@ class EngineTest(unittest.TestCase):
         row.result["output"] = [{"name": "x", "quantity": 2}, {"name": "x", "quantity": 1}]
         self.assertEqual(row.view("buy")["output"], 150.0)
 
-    def test_force_source(self):
-        client = FakeClient()
-        rows = calculate(settings.normalize(), ["strong_chain"], source="api", client=client, prices=False)
-        self.assertEqual(len(client.api_calls), 8)
-        self.assertEqual(client.web_calls, [])
-        self.assertTrue(all(r.source == "api" for r in rows))
+    def test_v2_result_conversion(self):
+        from reactionding.client import convert_v2
+        r = convert_v2({"name": "X", "runs": 10, "runTimeSeconds": 60,
+                        "inputs": [{"typeId": 1, "name": "Mat", "quantity": 50}],
+                        "outputs": [{"typeId": 2, "name": "X", "quantity": 20}],
+                        "jobCost": {"systemCost": 3.0, "total": 7.5}, "totals": {"slotSeconds": 600}})
+        self.assertEqual(r["input"], [{"name": "Mat", "id": 1, "quantity": 50}])
+        self.assertEqual(r["output"][0]["quantity"], 20)
+        self.assertEqual(r["taxes"]["total"]["install"], 7.5)
+        self.assertEqual(r["cycle_data"]["total_time"], 10.0)
 
     def test_zero_output_is_json_safe(self):
         row = priced_rows(["eratic"])[0]
@@ -193,10 +197,14 @@ class EngineTest(unittest.TestCase):
 
 class VerifyTest(unittest.TestCase):
     def test_catalog_detects_new_reaction(self):
-        pages = FakeClient().web_results("hybrid", settings.normalize())
-        pages["hybrid"].append({"name": "New Thing", "id": 1})
-        issues = check_catalog({"hybrid": pages})
-        self.assertEqual([i["name"] for i in issues], ["New Thing"])
+        from reactionding.verify import CHAINED
+        recipes = [{"reactor": g.calculator, "name": n, "product": {"typeId": i, "name": n}}
+                   for g in GROUPS.values() if g.key not in CHAINED for i, n in g.items]
+        self.assertEqual(check_catalog(recipes), [])
+        recipes.append({"reactor": "hybrid", "name": "New Thing", "product": {"typeId": 1, "name": "New Thing"}})
+        recipes.pop(0)
+        issues = check_catalog(recipes)
+        self.assertEqual(sorted(i["name"] for i in issues), sorted(["New Thing", GROUPS["hybrid"].items[0][1]]))
 
     def test_sde_recipe_and_time(self):
         g = GROUPS["hybrid"]

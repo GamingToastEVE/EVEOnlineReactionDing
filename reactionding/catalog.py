@@ -3,12 +3,11 @@
 Each group corresponds to one table of the web calculator. ``source`` says
 where the program gets the numbers from by default:
 
-* ``api`` - the public API (https://reactions.coalition.space/api/v1)
-* ``web`` - the calculator page data (same engine, settings sent as cookies)
+* ``api`` - the public API v2 (https://reactions.coalition.space/api, ``/api/v2/profits/{slug}``)
 
-``web`` is only used where a sweep over all reactions showed that the API
-rejects or miscalculates the group (see ``issue``). Run
-``python -m reactionding verify`` to re-check this against the live API.
+API v1 and the old calculator page data were removed by the site (v1 answers 410).
+``V2`` says which calculation of API v2 a group uses. Run
+``python -m reactionding verify`` to re-check the catalog against the live API.
 """
 
 from dataclasses import dataclass, field
@@ -246,25 +245,32 @@ _GROUPS = [
     ("refined", "composite", "refined", "refined",
      "Unrefined Reactions (55% Efficiency)", "api", ""),
     ("eratic", "composite", "eratic", "eratic",
-     "Unrefined Mineral Reactions (no reprocessing)", "web",
-     "API uses a 3600s reaction time instead of 360s (SDE), so runs are 10x too low"),
+     "Unrefined Mineral Reactions (no reprocessing)", "api", ""),
     ("eratic_repro", "composite", "eratic-repro", "eratic_repro",
-     "Unrefined Mineral Reactions (MAX Refine 90.63%)", "web",
-     "API rejects every id with TYPE_ID_MISMATCH"),
+     "Unrefined Mineral Reactions (MAX Refine 90.63%)", "api", ""),
     ("synth", "biochemical", "synth", "synth", "Synth Booster Reactions", "api", ""),
-    ("standard", "biochemical", "standard", "standard", "Standard Booster Reactions", "web",
-     "API rejects every id with TYPE_ID_MISMATCH"),
-    ("improved", "biochemical", "improved", "improved", "Improved Booster Reactions", "web",
-     "API rejects every id with TYPE_ID_MISMATCH"),
+    ("standard", "biochemical", "standard", "standard", "Standard Booster Reactions", "api", ""),
+    ("improved", "biochemical", "improved", "improved", "Improved Booster Reactions", "api", ""),
     ("improved_chain", "biochemical", "improved_chain", "improved_chain",
-     "Improved Booster Chain Reactions", "web",
-     "API rejects every id with TYPE_ID_MISMATCH"),
+     "Improved Booster Chain Reactions", "api", ""),
     ("strong", "biochemical", "strong", "strong", "Strong Booster Reactions", "api", ""),
     ("strong_chain", "biochemical", "strong_chain", "strong_chain",
-     "Strong Booster Chain Reactions", "web",
-     "API does not resolve the chain (returns the plain Strong Booster inputs)"),
+     "Strong Booster Chain Reactions", "api", ""),
     ("molecular", "biochemical", "molecular", "molecular", "Molecular-Forging Reactions", "api", ""),
 ]
+
+# group -> (view, output) of GET /api/v2/profits/{slug}; everything else: ("single", "product")
+V2 = {
+    "chain": ("chain", "product"),
+    "improved_chain": ("chain", "product"),
+    "strong_chain": ("chain", "product"),
+    "refined": ("single", "reprocessed"),
+    "eratic_repro": ("single", "reprocessed"),
+}
+
+
+def v2_view(group):
+    return V2.get(group.key, ("single", "product"))
 
 GROUPS = {
     key: Group(key, calc, api_type, web_key, title, source, issue, tuple(ITEMS[key]))

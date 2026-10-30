@@ -1,100 +1,51 @@
 """Goes through every reaction and checks the data for correctness.
 
-Three independent checks:
+Three checks:
 
-1. catalog  - the reaction list of the program vs. the live calculator pages
-2. api      - every reaction is requested from the API; the answer is compared
-              with the calculator page (same engine, same settings)
-3. sde      - recipes (inputs, output quantity, reaction time) are compared with
-              CCP's official Static Data Export (developers.eveonline.com)
+1. catalog  - the reaction list of the program vs. the recipes of the calculator
+              (reactions.coalition.space, GET /api/v2/reactions)
+2. api      - every reaction is calculated through API v2; errors are reported
+3. sde      - recipes (inputs, output quantity, reaction time) of the calculator results are
+              compared with CCP's official Static Data Export (developers.eveonline.com)
 """
 
 import statistics
 
 from .catalog import GROUPS
-from .client import ApiError, Client
-from .engine import _match_web
+from .client import Client
+from .engine import calculate, outputs
 
-# Groups whose page result is built from a recipe chain (no 1:1 SDE recipe).
+# Groups whose result is built from a recipe chain or reprocessing (no 1:1 SDE recipe).
 CHAINED = {"chain", "improved_chain", "strong_chain", "refined", "eratic_repro"}
 
 
 def _issue(kind, group, name, message):
-    return {"check": kind, "group": group, "name": name, "message": message}
+    return {"check": kind, "group": group, "name": name, "message": message, "known": False}
 
 
 # --- 1. catalog --------------------------------------------------------------
 
-def check_catalog(pages):
-    issues = []
+def check_catalog(recipes):
+    """recipes: list from GET /api/v2/reactions."""
+    site = {r["product"]["typeId"]: r for r in recipes}
+    ours = {}
     for group in GROUPS.values():
-        page = pages.get(group.calculator)
-        if page is None or isinstance(page, Exception):
-            continue
-        entries = page.get(group.web_key)
-        if entries is None:
-            issues.append(_issue("catalog", group.key, "-", "group missing on calculator page"))
-            continue
-        page_names = [e.get("name") for e in entries]
-        ours = [name for _, name in group.items]
-        for name in sorted(set(page_names) - set(ours)):
-            issues.append(_issue("catalog", group.key, name, "new reaction on page, not in catalog"))
-        for name in sorted(set(ours) - set(page_names)):
-            issues.append(_issue("catalog", group.key, name, "in catalog but not on page"))
-        page_ids = {e.get("name"): e.get("id") for e in entries if e.get("id")}
+        if group.key in CHAINED:
+            continue  # same items as their base group
         for item_id, name in group.items:
-            if name in page_ids and page_ids[name] != item_id:
-                issues.append(_issue("catalog", group.key, name,
-                                     f"id {item_id} differs from page id {page_ids[name]}"))
+            ours[item_id] = (group.key, name)
+    issues = []
+    for type_id, r in sorted(site.items(), key=lambda x: x[1]["name"]):
+        if type_id not in ours:
+            issues.append(_issue("catalog", r.get("reactor", "-"), r["product"]["name"],
+                                 "new reaction on the calculator, not in the catalog"))
+    for item_id, (key, name) in sorted(ours.items(), key=lambda x: x[1]):
+        if item_id not in site:
+            issues.append(_issue("catalog", key, name, "in the catalog but not on the calculator"))
+        elif site[item_id]["product"]["name"] != name:
+            issues.append(_issue("catalog", key, name,
+                                 f"calculator calls it {site[item_id]['product']['name']!r}"))
     return issues
-
-
-# --- 2. API vs page ------------------------------------------------------------
-
-def check_api(client, settings, pages, workers=4, progress=None):
-    import concurrent.futures as cf
-
-    jobs = [(g, i, n, pos) for g in GROUPS.values() for pos, (i, n) in enumerate(g.items)]
-
-    def run(job):
-        group, item_id, name, _ = job
-        try:
-            return job, client.api_calculate(group, item_id, settings), None
-        except ApiError as exc:
-            return job, None, exc
-
-    issues, stats = [], {}
-    with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for (group, item_id, name, pos), api, err in pool.map(run, jobs):
-            st = stats.setdefault(group.key, {"total": 0, "api_ok": 0, "match": 0})
-            st["total"] += 1
-            if progress:
-                progress(group, name)
-            if err:
-                issues.append(_issue("api", group.key, name, f"API error: {err.code} {err.message}"))
-                continue
-            st["api_ok"] += 1
-            page = pages.get(group.calculator)
-            if page is None or isinstance(page, Exception):
-                continue
-            web = _match_web(page.get(group.web_key) or [], item_id, name, pos)
-            if web is None:
-                continue
-            diffs = []
-            for key in ("runs", "input_total", "output_total", "taxes_total", "profit"):
-                a, w = api.get(key), web.get(key)
-                if isinstance(a, (int, float)) and isinstance(w, (int, float)):
-                    if abs(a - w) > max(1.0, abs(w) * 1e-6):
-                        diffs.append(f"{key} api={a:,.2f} page={w:,.2f}")
-            api_inputs = sorted(x.get("name") for x in api.get("input", []))
-            web_inputs = sorted(x.get("name") for x in web.get("input", []))
-            if api_inputs != web_inputs:
-                diffs.append("different input materials")
-            if diffs:
-                issues.append(_issue("api", group.key, name, "API != calculator page: " + "; ".join(diffs)))
-            else:
-                st["match"] += 1
-    return issues, stats
 
 
 # --- 3. SDE ------------------------------------------------------------------
@@ -116,19 +67,34 @@ def load_sde():
     return products, materials, times
 
 
-def check_sde(pages, sde):
+def _entry(entries, item_id, name, position):
+    for entry in entries:
+        if entry.get("id") == item_id:
+            return entry
+    for entry in entries:
+        if entry.get("name") == name:
+            return entry
+    return entries[position] if position < len(entries) else None
+
+
+def check_sde(pages, sde, max_runs=None):
+    """pages: {calculator: {group key: [result, ...]}} in catalog order.
+    max_runs: product type id -> run limit of the formula (those jobs cannot use the full time)."""
+    max_runs = max_runs or {}
     products, materials, times = sde
     issues = []
-    run_seconds = []  # runs * base time; should be equal for all reactions
+    run_seconds = []  # runs * base time; should be about equal for all reactions
     for group in GROUPS.values():
         if group.key in CHAINED:
             continue
         page = pages.get(group.calculator)
-        if page is None or isinstance(page, Exception):
+        if not page:
             continue
         for pos, (item_id, name) in enumerate(group.items):
-            entry = _match_web(page.get(group.web_key) or [], item_id, name, pos)
-            if not entry or item_id not in products:
+            entry = _entry(page.get(group.web_key) or [], item_id, name, pos)
+            if not entry:
+                continue
+            if item_id not in products:
                 issues.append(_issue("sde", group.key, name, "no reaction formula in SDE"))
                 continue
             blueprint, out_qty = products[item_id]
@@ -147,11 +113,12 @@ def check_sde(pages, sde):
                         issues.append(_issue(
                             "sde", group.key, name,
                             f"{mat}: {per_run:,.2f}/run, CCP SDE says {base}/run"))
-            out = (entry.get("output") or {}).get("quantity")
+            out = sum(x.get("quantity") or 0 for x in outputs(entry) if x.get("name") == name) \
+                or (outputs(entry)[0].get("quantity") if outputs(entry) else None)
             if runs and out is not None and out != runs * out_qty:
                 issues.append(_issue("sde", group.key, name,
                                      f"output {out:,} != {runs} runs x {out_qty} (SDE)"))
-            if runs and blueprint in times:
+            if runs and blueprint in times and runs != max_runs.get(item_id):
                 run_seconds.append((runs * times[blueprint], group.key, name, runs, times[blueprint]))
     if run_seconds:
         median = statistics.median(v for v, *_ in run_seconds)
@@ -165,25 +132,29 @@ def check_sde(pages, sde):
 
 def run_all(settings, client=None, workers=4, skip_sde=False, progress=None):
     client = client or Client()
-    pages = {}
-    for calculator in ("hybrid", "composite", "biochemical"):
-        try:
-            pages[calculator] = client.web_results(calculator, settings)
-        except ApiError as exc:
-            pages[calculator] = exc
     report = {"issues": [], "stats": {}, "errors": []}
-    for calc, page in pages.items():
-        if isinstance(page, Exception):
-            report["errors"].append(f"calculator page {calc}: {page}")
-    report["issues"] += check_catalog(pages)
-    api_issues, report["stats"] = check_api(client, settings, pages, workers, progress)
-    report["issues"] += api_issues
+    max_runs = {}
+    try:
+        recipes = client.recipes()
+        max_runs = {r["product"]["typeId"]: r.get("maxRuns") for r in recipes}
+        report["issues"] += check_catalog(recipes)
+    except Exception as exc:  # noqa: BLE001
+        report["errors"].append(f"recipe list of the calculator: {exc}")
+    rows = calculate(settings, client=client, workers=workers, prices=False,
+                     progress=(lambda row: progress(row.group, row.name)) if progress else None)
+    pages = {}
+    for row in rows:
+        st = report["stats"].setdefault(row.group.key, {"total": 0, "api_ok": 0})
+        st["total"] += 1
+        if row.error:
+            report["issues"].append(_issue("api", row.group.key, row.name, row.error))
+            continue
+        st["api_ok"] += 1
+        entry = dict(row.result, id=row.item_id, name=row.name)
+        pages.setdefault(row.group.calculator, {}).setdefault(row.group.web_key, []).append(entry)
     if not skip_sde:
         try:
-            report["issues"] += check_sde(pages, load_sde())
+            report["issues"] += check_sde(pages, load_sde(), max_runs)
         except Exception as exc:  # network etc.; SDE is an optional extra check
             report["errors"].append(f"SDE check skipped: {exc}")
-    # API problems in groups that already use the page data are handled ("known").
-    for issue in report["issues"]:
-        issue["known"] = issue["check"] == "api" and GROUPS[issue["group"]].source == "web"
     return report

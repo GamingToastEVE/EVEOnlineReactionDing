@@ -9,7 +9,7 @@ Woher die Daten kommen:
 |---|---|
 | **Preise** | live aus der offiziellen EVE-API (ESI), Jita 4-4: **Buy** = höchste Buy-Order, **Sell** = niedrigste Sell-Order, **Split** = Mitte von Buy und Sell. Fehlt eine Seite, wird die andere genommen und das Item markiert ⚠. Die Preise werden 15 Minuten gecacht (auch auf der Festplatte) und im Hintergrund alle 15 Minuten erneuert. Ist ESI nicht erreichbar, gelten die letzten bekannten Preise. |
 | **Rezepte** | CCPs offizieller Static Data Export (developers.eveonline.com). Gelesen wird nur der Blueprint-Teil (~190 KB). Eine Kopie liegt bei, falls man offline ist. |
-| **Mengen, Runs, Job-Kosten** der Profit-Tabelle | [EVE Online Reactions Calculator](https://reactions.coalition.space) (Oxed G), primär über dessen [API](https://reactions.coalition.space/api) |
+| **Mengen, Runs, Job-Kosten** der Profit-Tabelle | [EVE Online Reactions Calculator](https://reactions.coalition.space) (Oxed G), über dessen [API v2](https://reactions.coalition.space/api) |
 | **System Cost Index**, Systemnamen | ESI |
 
 Abgedeckt sind alle 177 Reactions in 15 Gruppen:
@@ -214,43 +214,28 @@ aktuelle Reaction Cost Index des Systems wird angezeigt.
 
 `verify` geht **jede** Reaction durch und macht drei Prüfungen:
 
-1. **catalog** – Ist die Reaction-Liste des Programms noch identisch mit dem Calculator?
-2. **api** – Jede Reaction wird über die API abgefragt und mit der Calculator-Seite verglichen
-   (gleiche Engine, gleiche Settings).
+1. **catalog** – Ist die Reaction-Liste des Programms noch identisch mit dem Calculator
+   (`GET /api/v2/reactions`)?
+2. **api** – Jede Reaction wird über die API v2 berechnet (`GET /api/v2/profits/{slug}`).
 3. **sde** – Rezepte (Inputs, Output-Menge, Reaction-Zeit) werden mit CCPs offiziellem Static Data
    Export abgeglichen.
 
-Ergebnis des Durchlaufs (Stand Oktober 2026):
+Ergebnis des Durchlaufs (Stand 30. Oktober 2026): **alle 177 Reactions** kommen über die API v2,
+alle Mengen und Rezepte stimmen mit CCPs SDE überein – keine Befunde.
 
-- **129 Reactions** (Hybrid, Simple, Complex, Complex Chain, Unrefined, Unrefined 55%, Synth,
-  Strong, Molecular-Forging) liefert die API korrekt – identisch mit dem Calculator.
-- Bei 6 Gruppen (48 Reactions) ist die API fehlerhaft. Dafür nutzt das Programm automatisch die Daten der
-  Calculator-Seite (gleiche Engine, Settings werden als Cookies mitgegeben; in der Oberfläche als
-  „calculator page“ markiert):
+Ende Oktober 2026 hat reactions.coalition.space die alte API v1 abgeschaltet (`410 API_V1_REMOVED`)
+und die Seite neu gebaut. Das Programm nutzt seitdem die **API v2**:
+- Gruppen mit Kette (Complex Chain, Improved/Strong Booster Chain) → `view=chain`
+- Unrefined (55 %) und Unrefined Mineral (90,63 %) → `output=reprocessed`
+- alles andere → `view=single`
+- Die Fehler der alten API (abgelehnte IDs, falsche Reaction-Zeit, falsche Rezepte) gibt es in v2
+  nicht mehr; der Umweg über die Calculator-Seite entfällt.
+- Runs pro Job ergeben sich aus der Build time in den Settings (Standard 7 Tage) und sind durch
+  das Run-Limit der Formel begrenzt (z. B. 100 bei Molecular-Forging, 1000 bei Unrefined Minerals).
 
-  | Gruppe | API-Problem |
-  |---|---|
-  | Standard Booster Reactions | jede ID wird mit `TYPE_ID_MISMATCH` abgelehnt |
-  | Improved Booster Reactions | jede ID wird mit `TYPE_ID_MISMATCH` abgelehnt |
-  | Improved Booster Chain Reactions | jede ID wird mit `TYPE_ID_MISMATCH` abgelehnt |
-  | Unrefined Mineral Reactions (MAX Refine 90.63%) | jede ID wird mit `TYPE_ID_MISMATCH` abgelehnt |
-  | Unrefined Mineral Reactions (no reprocessing) | rechnet mit 3600 s statt 360 s Reaction-Zeit (SDE) → 10× zu wenige Runs |
-  | Strong Booster Chain Reactions | löst die Kette nicht auf, liefert nur die Inputs der Strong Booster Reaction |
-
-- Rezeptfehler im Calculator selbst (API **und** Seite, laut CCPs offiziellen Daten; in der
-  Profit-Tabelle mit ⚠ markiert, Kostenkette und Planner nutzen die richtigen CCP-Rezepte):
-  - *Unrefined Tritanium*: 1000 statt 100 Atmospheric Gases pro Run
-  - *Unrefined Zydrine*: 600 statt 1000 Atmospheric Gases pro Run
-  - *Pure Strong Frentix Booster*: 100 statt 20 Hydrochloric Acid pro Run
-
-  Diese Werte können nur auf der Calculator-Seite korrigiert werden; `verify` meldet sie.
-
-Mit `--source api` bzw. `--source web` lässt sich eine Quelle erzwingen. Läuft `verify` eines
-Tages ohne Befunde bei der API durch, kann in `reactionding/catalog.py` die `source` der
-betroffenen Gruppe wieder auf `api` gestellt werden.
-
-Die API erlaubt ca. 90 Anfragen pro Minute; das Programm drosselt sich selbst (`--rate`,
-Standard 5/s) und wiederholt bei `429`.
+Die API erlaubt 120 Anfragen pro Minute; das Programm drosselt sich selbst (`--rate`, Standard
+1,8/s), wiederholt bei `429` und merkt sich Ergebnisse 10 Minuten. Der erste Durchlauf aller 177
+Reactions dauert deshalb knapp 2 Minuten, danach geht es sofort.
 
 ## Spreadsheet prüfen
 
